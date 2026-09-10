@@ -18,3 +18,7 @@ TBD - created by archiving change runtime. Update Purpose after archive.
 - **WHEN** 前端调用保存配置绑定方法
 - **THEN** 新值写回 `config.json` 并持久化
 
+#### Scenario: 空值表示未设
+- **WHEN** 某配置字段取默认值
+- **THEN** 该字段为空串（`""`），语义为"未设置"，由调用方决定 fallback 行为（而非硬编码一个具体默认值）
+

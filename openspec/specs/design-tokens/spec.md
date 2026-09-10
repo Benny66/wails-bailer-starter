@@ -22,15 +22,19 @@ TBD - created by archiving change design-system. Update Purpose after archive.
 - **THEN** primary-50 至 primary-900 及所有语义色随之更新，全站视觉统一变化
 
 ### Requirement: 主题切换
-系统 MUST 提供暗色与亮色主题，默认跟随系统偏好，可通过切换应用。
+系统 MUST 提供暗色与亮色主题，默认跟随系统偏好，可通过切换应用，且用户选择持久化到 config。
 
-#### Scenario: 默认跟随系统
-- **WHEN** 应用首次启动且用户未手动选择过主题
+#### Scenario: 首次启动跟随系统
+- **WHEN** 应用首次启动且 config 中主题为空（未设置）
 - **THEN** 主题初始值为系统偏好（系统亮色则亮色，系统暗色则暗色），且 `<html>` 的 `data-theme` 与初始值一致
 
-#### Scenario: 切换主题
+#### Scenario: 已设置则用 config 值
+- **WHEN** 应用启动且 config 中主题非空（用户之前选过）
+- **THEN** 主题初始值为 config 值，不再跟随系统
+
+#### Scenario: 切换主题并持久化
 - **WHEN** 用户触发主题切换
-- **THEN** 全站配色随之切换、设置页按钮高亮状态同步更新，无需刷新页面
+- **THEN** 全站配色随之切换、设置页按钮高亮同步更新、主题值写入 config.json（重启后保持）
 
 #### Scenario: 手动选择后不再跟随系统
 - **WHEN** 用户已手动选择过主题
