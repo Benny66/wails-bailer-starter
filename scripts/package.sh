@@ -19,8 +19,11 @@ WAILS="$(go env GOPATH)/bin/wails"
 OS="${1:-}"
 
 # ---- 母版防呆：占位符残留则拒绝打包 ----
-if grep -rq '__APP_NAME__' go.mod wails.json main.go 2>/dev/null; then
-  echo "错误：检测到 __APP_NAME__ 占位符残留——母版不能直接打包。" >&2
+# 注意：检测字符串不能写成裸 __APP_NAME__（会被 init.sh 全局替换成项目名，
+# 导致防呆失效）。用下划线拆写规避替换。
+PLACEHOLDER="__APP_""NAME__"
+if grep -rq "$PLACEHOLDER" go.mod wails.json main.go 2>/dev/null; then
+  echo "错误：检测到占位符残留——母版不能直接打包。" >&2
   echo "请先实例化：bash scripts/init.sh <your-app-name>" >&2
   exit 1
 fi
