@@ -4,13 +4,19 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
+import { useAppStore } from './stores/app'
 import './styles/tokens.css'
 import './styles/theme.css'
 import './styles/element.css'
 import './styles/index.css'
 
 const app = createApp(App)
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
+
+// 挂载前同步初始主题到 <html>，消除 store 与 DOM 的初始脱节。
+useAppStore(pinia).initTheme()
+
 app.mount('#app')

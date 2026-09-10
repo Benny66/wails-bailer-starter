@@ -1,10 +1,11 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useAppStore } from '../stores/app'
 
 // 设置页：占位 + 主题切换演示（验证 data-theme 生效）。
 const store = useAppStore()
-const theme = ref(store.theme)
+// 用 storeToRefs 建立真响应式，避免 ref(store.theme) 的断链快照。
+const { theme } = storeToRefs(store)
 
 function onThemeChange(val: 'dark' | 'light') {
   store.setTheme(val)
