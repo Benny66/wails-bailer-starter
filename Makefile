@@ -30,7 +30,7 @@ lint: ## 静态检查（gofmt + Go 护栏 + go vet + 前端 ESLint）
 smoke: ## 冒烟测试（构建 → 启动 → 断言 → 清理）
 	bash scripts/smoke.sh
 
-package: ## 打包真安装包（make package [windows|macos|linux]）
+package: ## 打包真安装包（make package os=windows|macos|linux，缺省=当前平台）
 	bash scripts/package.sh $(os)
 
 gen: ## 生成新模块（锚点注入 + 幂等）—— make gen name=<module>
