@@ -32,5 +32,5 @@ smoke: ## 冒烟测试（构建后 IPC/绑定握手）—— 待 ci-release chan
 package: ## 打包安装包（当前平台，如 .app/.exe）
 	$(WAILS) build -clean
 
-gen: ## 生成新模块（锚点注入 + 幂等）—— 待 example-module change 实现
-	@echo "未实现：gen 待 example-module change 落地 _example 模板与生成器" && exit 1
+gen: ## 生成新模块（锚点注入 + 幂等）—— make gen name=<module>
+	bash scripts/gen.sh $(name)
