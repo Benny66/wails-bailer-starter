@@ -22,15 +22,19 @@ TBD - created by archiving change design-system. Update Purpose after archive.
 - **THEN** primary-50 至 primary-900 及所有语义色随之更新，全站视觉统一变化
 
 ### Requirement: 主题切换
-系统 MUST 提供暗色与亮色主题，默认跟随系统，可通过切换应用。
+系统 MUST 提供暗色与亮色主题，默认跟随系统偏好，可通过切换应用。
 
-#### Scenario: 暗色优先
-- **WHEN** 应用首次启动
-- **THEN** 默认呈现暗色主题（专业工具风），且跟随系统偏好
+#### Scenario: 默认跟随系统
+- **WHEN** 应用首次启动且用户未手动选择过主题
+- **THEN** 主题初始值为系统偏好（系统亮色则亮色，系统暗色则暗色），且 `<html>` 的 `data-theme` 与初始值一致
 
 #### Scenario: 切换主题
-- **WHEN** 触发主题切换
-- **THEN** 全站配色随之切换，无需刷新页面
+- **WHEN** 用户触发主题切换
+- **THEN** 全站配色随之切换、设置页按钮高亮状态同步更新，无需刷新页面
+
+#### Scenario: 手动选择后不再跟随系统
+- **WHEN** 用户已手动选择过主题
+- **THEN** 后续不再因系统偏好变化而自动改变主题
 
 ### Requirement: 禁硬编码色值
 前端渲染层 MUST 禁止硬编码 hex 色值与品牌字符串，一律引用令牌或配置。
