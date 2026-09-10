@@ -2,11 +2,23 @@
 
 基于 **Wails v2 (Go + Vue3)** 的桌面客户端脚手架基座，开箱即用、可反复复用。
 
+> **这是脚手架母版，不是可直接运行的项目。** 用它开发新项目，先执行实例化脚本生成干净项目。
+
 - 后端：Go + gorm + SQLite（纯 Go 驱动，跨平台交叉编译无 CGO 依赖）
 - 前端：Vue3 + Vite + Element Plus + Vue Router + Pinia
-- 设计系统：暗色优先的专业工具风，单主色派生全色阶，换肤只改 3 个值
+- 设计系统：暗色优先的专业工具风，单主色派生全色阶
 - 运行时：单实例锁、系统托盘（Windows/Linux）、日志轮转、配置读写、原生对话框、崩溃落盘
 - 工程化：架构护栏（AST/ESLint）、依赖登记制、`make gen` 模块生成器、OpenSpec 治理
+
+## 实例化新项目
+
+```bash
+bash scripts/init.sh myapp    # 生成干净新项目（替换模块名 + 清空归档历史 + git init）
+cd ../myapp
+make dev                      # 启动开发态
+```
+
+`init.sh` 会把母版的占位符 `__APP_NAME__` 全局替换为你的项目名（go.mod / import / wails.json / index.html / 生成器脚本），并清空母版的归档历史、保留能力基线。
 
 ## 环境准备
 
@@ -69,16 +81,9 @@ make gen name=asset
 
 专业工具风，暗色优先。换肤只需改 `frontend/src/styles/tokens.css` 里**品牌区**的主色，其余颜色全部由主色自动派生，禁硬编码 hex 色值（ESLint 护栏强制）。
 
-品牌名（`wails-bailer-starter`）目前硬编码在以下 4 处，改名需同步：
-
-1. `wails.json` → `name` 与 `outputfilename`
-2. `main.go` → `appName` 常量（用户配置目录命名空间）
-3. `main.go` → `options.Title`（窗口标题，会覆盖 index.html 的 title）
-4. `frontend/index.html` → `<title>`（webview 兜底标题）
-
-> 注：这是 Wails v2 的现状——品牌名未完全集中成单一真相。若要彻底「改一处全生效」，需引入配置下发（v1.1 候选）。
-
 logo 在 `build/appicon.png`（前端资源与托盘图标共用）。
+
+> 品牌名/模块名已占位符化为 `__APP_NAME__`，通过 `scripts/init.sh` 实例化时全局替换，无需手改。
 
 ## 架构护栏
 
