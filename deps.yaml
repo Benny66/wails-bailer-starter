@@ -1,0 +1,51 @@
+# ==========================================================================
+# deps.yaml — 依赖登记制（单一真相）
+# --------------------------------------------------------------------------
+# 新增直接依赖不能只 go get / npm install，必须在此登记并附理由。
+# 护栏（internal/guard/deps_test.go）做双向校验：
+#   - 正向：清单里每个直接依赖都必须在下方登记。
+#   - 反向：下方每个条目都必须真实存在于清单。
+# 说明：
+#   - 只登记「直接」依赖：Go 的 require（非 indirect）+ 前端 dependencies。
+#   - devDependencies（eslint/vite/typescript 等工具链）不登记。
+# ==========================================================================
+
+# ---- Go 直接依赖（go.mod 的 require，非 indirect） ----
+go:
+  - module: github.com/wailsapp/wails/v2
+    version: v2.15.0
+    reason: Wails 桌面应用框架（Go + WebView2/WKWebView），脚手架核心技术栈。
+
+  - module: gorm.io/gorm
+    version: v1.31.2
+    reason: ORM，SQLite 迁移与模型访问（AutoMigrate 框架）。
+
+  - module: github.com/glebarez/sqlite
+    version: v1.11.0
+    reason: 纯 Go SQLite 驱动（无 CGO），跨平台交叉编译零痛苦。
+
+  - module: github.com/energye/systray
+    version: v1.0.3
+    reason: 系统托盘。getlantern/systray 的 fork，提供 RunWithExternalLoop 让托盘与 Wails 主事件循环共存（getlantern 版会抢 NSApp run 导致运行时 SIGTRAP）。
+
+  - module: gopkg.in/natefinch/lumberjack.v2
+    version: v2.2.1
+    reason: 日志按大小轮转（MaxSize + MaxBackups），避免日志文件无限增长。
+
+# ---- 前端直接依赖（package.json 的 dependencies） ----
+frontend:
+  - package: vue
+    version: ^3.5.0
+    reason: 前端框架。
+
+  - package: vue-router
+    version: ^5.3.1
+    reason: 前端路由（hash 模式适配 Wails file:// 打包）。
+
+  - package: pinia
+    version: ^4.0.3
+    reason: 状态管理（主题/侧栏等全局状态）。
+
+  - package: element-plus
+    version: ^2.14.5
+    reason: 组件库（功能底座：表格/表单/分页/弹窗），视觉由 tokens 重主题。
