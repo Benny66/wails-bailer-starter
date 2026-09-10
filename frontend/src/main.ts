@@ -16,7 +16,7 @@ app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
 
-// 挂载前同步初始主题到 <html>，消除 store 与 DOM 的初始脱节。
-useAppStore(pinia).initTheme()
+// 挂载前同步初始主题到 <html>（await 确保 config 读取完成后再挂载，避免首屏闪烁）。
+await useAppStore(pinia).initTheme()
 
 app.mount('#app')

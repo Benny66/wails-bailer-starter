@@ -15,7 +15,7 @@ import (
 // Config 是应用配置的持久化结构。
 // 字段带 json tag，新增配置项在此扩展并给默认值。
 type Config struct {
-	// Theme 界面主题：dark / light。
+	// Theme 界面主题：dark / light。空串（""）表示"未设置"，语义为"跟随系统"。
 	Theme string `json:"theme"`
 
 	// path 是配置文件路径，不序列化（json:"-"）。
@@ -23,8 +23,10 @@ type Config struct {
 }
 
 // Default 返回默认配置。
+// 字段默认值为空串（""），表示"未设置"——由调用方决定 fallback 行为，
+// 而非硬编码一个具体默认值（如 Theme 空串 = 跟随系统）。
 func Default() *Config {
-	return &Config{Theme: "dark"}
+	return &Config{Theme: ""}
 }
 
 // Load 读取配置；文件不存在时写入默认值并返回默认配置。

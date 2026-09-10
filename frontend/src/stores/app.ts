@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { GetTheme, SetTheme } from '../../wailsjs/go/main/App'
 
 type Theme = 'dark' | 'light'
 
@@ -14,18 +15,32 @@ function systemPrefersDark(): boolean {
 
 // 应用全局状态：主题 + 侧栏折叠。
 export const useAppStore = defineStore('app', () => {
-  // 默认跟随系统：初始主题 = 系统偏好，而非硬编码 dark。
+  // 初始值先取系统偏好占位，真正的"config 优先"在 initTheme 里完成。
   const theme = ref<Theme>(systemPrefersDark() ? 'dark' : 'light')
   const sidebarCollapsed = ref(false)
 
   function setTheme(next: Theme) {
     theme.value = next
     document.documentElement.setAttribute('data-theme', next)
+    // 异步落盘到 config.json（Go 侧），失败不阻断切换
+    SetTheme(next).catch((err) => {
+      console.error('主题持久化失败:', err)
+    })
   }
 
-  // 启动时同步一次 data-theme，消除"store 有值但 DOM 无属性"的脱节。
-  function initTheme() {
-    document.documentElement.setAttribute('data-theme', theme.value)
+  // 启动时同步主题：config 优先，空串 fallback 到系统偏好。
+  // 这是"前端调 Go"的活范例：GetTheme 读 config，空串表示"未设置"。
+  async function initTheme() {
+    let resolved: Theme
+    try {
+      const saved = await GetTheme()
+      resolved = saved === 'dark' || saved === 'light' ? saved : (systemPrefersDark() ? 'dark' : 'light')
+    } catch {
+      // 非 wails 环境（纯 vite dev）或调用失败，fallback 系统偏好
+      resolved = systemPrefersDark() ? 'dark' : 'light'
+    }
+    theme.value = resolved
+    document.documentElement.setAttribute('data-theme', resolved)
   }
 
   function toggleSidebar() {
