@@ -50,6 +50,11 @@ find "$DEST" -type f \
     fi
   done
 
+# .gitignore（无扩展名）单独替换：__APP_NAME__ → name（忽略项目名命名的裸二进制）
+if grep -q '__APP_NAME__' "$DEST/.gitignore" 2>/dev/null; then
+  sed -i '' "s/__APP_NAME__/${NAME}/g" "$DEST/.gitignore" 2>/dev/null || sed -i "s/__APP_NAME__/${NAME}/g" "$DEST/.gitignore"
+fi
+
 # 3. 清空母版归档历史，保留 specs 能力基线
 rm -rf "$DEST/openspec/changes/archive"
 mkdir -p "$DEST/openspec/changes/archive"
