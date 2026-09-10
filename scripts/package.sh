@@ -88,8 +88,15 @@ case "$TARGET" in
     echo "✓ 已生成: build/bin/${APP_NAME}"
     ;;
   windows)
-    "$WAILS" build -platform windows/amd64 -nsis
-    echo "✓ 已生成: build/bin/（.exe 安装器）"
+    if command -v makensis >/dev/null 2>&1; then
+      "$WAILS" build -platform windows/amd64 -nsis
+      echo "✓ 已生成: build/bin/（.exe 安装器）"
+    else
+      # 无 makensis（NSIS 编译器）时降级为裸 exe，明确提示不假装有安装器
+      echo "提示：未找到 makensis（NSIS），降级为裸 exe（非安装器）。可 brew install nsis 后重试。" >&2
+      "$WAILS" build -platform windows/amd64
+      echo "✓ 已生成: build/bin/（裸 .exe，非安装器）"
+    fi
     ;;
 esac
 
