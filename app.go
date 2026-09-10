@@ -17,9 +17,9 @@ import (
 // 分层纪律：App 不直接持有 *gorm.DB、不 import database，业务访问一律经 svc。
 // 运行时服务（config/tray/dialog）由 App 持有并暴露为绑定方法。
 type App struct {
-	ctx  context.Context
-	svc  *service.Service
-	cfg  *config.Config
+	ctx      context.Context
+	svc      *service.Service
+	cfg      *config.Config
 	trayStop func()
 }
 
@@ -108,5 +108,5 @@ func (a *App) SetTheme(theme string) error {
 	a.cfg.Theme = theme
 	return a.cfg.Save()
 }
-// gen:bind
 
+// gen:bind

@@ -31,7 +31,7 @@ func Init(opts Options) (closeFn func(), err error) {
 	// lumberjack：单文件 5MB，保留 3 份，最多 7 天。
 	fileWriter := &lumberjack.Logger{
 		Filename:   logPath,
-		MaxSize:    5,  // MB
+		MaxSize:    5, // MB
 		MaxBackups: 3,
 		MaxAge:     7, // days
 		Compress:   false,

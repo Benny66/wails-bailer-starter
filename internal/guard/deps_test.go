@@ -18,7 +18,7 @@ import (
 
 // depsRegistry 是 deps.yaml 的解析结果。
 type depsRegistry struct {
-	goModules   map[string]bool
+	goModules    map[string]bool
 	frontendPkgs map[string]bool
 }
 

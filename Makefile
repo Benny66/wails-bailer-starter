@@ -23,7 +23,8 @@ build: ## 编译当前平台产物（不打包安装包）
 test: ## 运行 Go 测试（含迁移框架冒烟测试）
 	go test $(GO_PKGS)
 
-lint: ## 静态检查（Go 护栏 + go vet + 前端 ESLint）
+lint: ## 静态检查（gofmt + Go 护栏 + go vet + 前端 ESLint）
+	@test -z "$$(gofmt -l . | grep -v node_modules)" || (echo "gofmt 未通过，请运行 gofmt -w 修复:" && gofmt -l . | grep -v node_modules && exit 1)
 	go test ./internal/guard/ && go vet $(GO_PKGS) && cd frontend && npx eslint "src/**/*.{vue,ts,js}"
 
 smoke: ## 冒烟测试（构建 → 启动 → 断言 → 清理）

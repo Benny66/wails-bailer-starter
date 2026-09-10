@@ -67,13 +67,18 @@ make gen name=asset
 
 ## 换肤（设计系统）
 
-专业工具风，暗色优先。换肤只需改 `frontend/src/styles/tokens.css` 里**品牌区**的 3 个值：
+专业工具风，暗色优先。换肤只需改 `frontend/src/styles/tokens.css` 里**品牌区**的主色，其余颜色全部由主色自动派生，禁硬编码 hex 色值（ESLint 护栏强制）。
 
-1. `--color-primary`（主色，自动派生 50–900 全色阶）
-2. 应用名称（`wails.json` 的 `name` + `main.go` 的 `appName`）
-3. logo（`build/appicon.png` 与前端资源）
+品牌名（`wails-bailer-starter`）目前硬编码在以下 4 处，改名需同步：
 
-其余颜色全部由主色自动派生，禁硬编码 hex 色值（ESLint 护栏强制）。
+1. `wails.json` → `name` 与 `outputfilename`
+2. `main.go` → `appName` 常量（用户配置目录命名空间）
+3. `main.go` → `options.Title`（窗口标题，会覆盖 index.html 的 title）
+4. `frontend/index.html` → `<title>`（webview 兜底标题）
+
+> 注：这是 Wails v2 的现状——品牌名未完全集中成单一真相。若要彻底「改一处全生效」，需引入配置下发（v1.1 候选）。
+
+logo 在 `build/appicon.png`（前端资源与托盘图标共用）。
 
 ## 架构护栏
 

@@ -10,6 +10,8 @@ build/bin/
 # ---- Node / 前端 ----
 node_modules/
 frontend/dist/
+# wails 打包缓存（依赖指纹，会自动重新生成）
+frontend/package.json.md5
 
 # ---- 日志 ----
 *.log
