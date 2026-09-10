@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="wails-bailer-starter"
+APP_NAME="__APP_NAME__"
 WAILS="$(go env GOPATH)/bin/wails"
 DATA_DIR="$HOME/Library/Application Support/${APP_NAME}"   # macOS；其他平台见下方兜底
 

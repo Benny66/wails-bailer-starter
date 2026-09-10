@@ -6,10 +6,10 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"wails-bailer-starter/internal/config"
-	"wails-bailer-starter/internal/dialog"
-	"wails-bailer-starter/internal/service"
-	"wails-bailer-starter/internal/tray"
+	"__APP_NAME__/internal/config"
+	"__APP_NAME__/internal/dialog"
+	"__APP_NAME__/internal/service"
+	"__APP_NAME__/internal/tray"
 	// gen:import
 )
 

@@ -21,7 +21,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 WAILS="$(go env GOPATH)/bin/wails"
-APP_NAME="wails-bailer-starter"
+APP_NAME="__APP_NAME__"
 
 echo "==> 打包版本 $VERSION ..."
 mkdir -p dist

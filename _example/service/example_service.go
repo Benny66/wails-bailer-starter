@@ -1,7 +1,7 @@
 package service
 
 import (
-	"wails-bailer-starter/internal/model"
+	"__APP_NAME__/internal/model"
 )
 
 // Example 的 CRUD 方法直接挂在 Service 聚合上（数据访问经 s.db）。

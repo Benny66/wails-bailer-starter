@@ -13,7 +13,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
-	"wails-bailer-starter/internal/model"
+	"__APP_NAME__/internal/model"
 )
 
 // Init 建立数据库连接并执行迁移，返回 *gorm.DB。

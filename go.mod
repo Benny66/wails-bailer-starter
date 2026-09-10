@@ -1,4 +1,4 @@
-module wails-bailer-starter
+module __APP_NAME__
 
 go 1.25.0
 

@@ -84,7 +84,7 @@ replace < "_example/frontend/ExampleList.vue" > "frontend/src/views/${SNAKE}/${P
 
 # 0. app.go import：在 `// gen:import` 前插入 internal/model
 TMP=$(mktemp)
-printf '\t"wails-bailer-starter/internal/model"\n' > "$TMP"
+printf '\t"__APP_NAME__/internal/model"\n' > "$TMP"
 insert_before_anchor "app.go" "// gen:import" "$TMP"
 rm -f "$TMP"
 

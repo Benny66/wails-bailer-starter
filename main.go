@@ -13,10 +13,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"wails-bailer-starter/internal/config"
-	"wails-bailer-starter/internal/database"
-	"wails-bailer-starter/internal/logging"
-	"wails-bailer-starter/internal/service"
+	"__APP_NAME__/internal/config"
+	"__APP_NAME__/internal/database"
+	"__APP_NAME__/internal/logging"
+	"__APP_NAME__/internal/service"
 )
 
 //go:embed all:frontend/dist
@@ -26,7 +26,7 @@ var assets embed.FS
 var trayIconBytes []byte
 
 // appName 应用标识，用于定位用户配置目录下的数据文件与日志。
-const appName = "wails-bailer-starter"
+const appName = "__APP_NAME__"
 
 func main() {
 	// 日志：开发态 Debug，生产态 Info（生产态由 -tags production 或环境变量决定，这里默认 Debug 便于开发）。
@@ -53,7 +53,7 @@ func main() {
 
 	// Create application with options
 	err = wails.Run(&options.App{
-		Title:  "wails-bailer-starter",
+		Title:  "__APP_NAME__",
 		Width:  1024,
 		Height: 768,
 		// 无边框按平台分叉：Windows/Linux 自绘标题栏（三按钮），macOS 用原生交通灯。
@@ -61,7 +61,7 @@ func main() {
 		Frameless: frameless(),
 		// 单实例锁：二次启动唤起已有窗口。
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "wails-bailer-starter-single-instance",
+			UniqueId: "__APP_NAME__-single-instance",
 			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
 				slog.Info("检测到二次启动，唤起已有窗口", "args", data.Args)
 				runtime.Show(app.ctx)
