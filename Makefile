@@ -17,7 +17,7 @@ help: ## 列出所有命令及用途
 dev: ## 启动开发态（wails dev，含前端热更新）
 	$(WAILS) dev
 
-build: ## 编译当前平台产物（不打包安装包）
+build: ## 编译当前平台产物（快速，.app 不封装 dmg）
 	$(WAILS) build
 
 test: ## 运行 Go 测试（含迁移框架冒烟测试）
@@ -30,8 +30,8 @@ lint: ## 静态检查（gofmt + Go 护栏 + go vet + 前端 ESLint）
 smoke: ## 冒烟测试（构建 → 启动 → 断言 → 清理）
 	bash scripts/smoke.sh
 
-package: ## 打包安装包（当前平台，如 .app/.exe）
-	$(WAILS) build -clean
+package: ## 打包真安装包（make package [windows|macos|linux]）
+	bash scripts/package.sh $(os)
 
 gen: ## 生成新模块（锚点注入 + 幂等）—— make gen name=<module>
 	bash scripts/gen.sh $(name)
