@@ -1,6 +1,8 @@
 # ---- Go ----
 # 编译产物（wails 输出到 build/bin）
 build/bin/
+# go build 在根目录产出的裸二进制（占位符/项目名命名）
+__APP_NAME__
 # 本地数据库文件
 *.db
 *.db-journal

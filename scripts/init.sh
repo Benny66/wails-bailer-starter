@@ -61,8 +61,8 @@ git init -q
 git add -A
 git -c user.name="scaffold" -c user.email="scaffold@local" commit -q -m "初始化项目 ${NAME}（由 scaffold-init 生成）" 2>/dev/null || echo "（首次提交跳过：无提交者信息，不影响项目）"
 
-# 5. 断言 __APP_NAME__ 残留为空
-RESIDUE=$(grep -rn '__APP_NAME__' "$DEST" 2>/dev/null | grep -vE 'node_modules|/dist/|\.git/' || true)
+# 5. 断言 __APP_NAME__ 残留为空（-I 忽略二进制文件，避免误报裸二进制产物）
+RESIDUE=$(grep -rIn '__APP_NAME__' "$DEST" 2>/dev/null | grep -vE 'node_modules|/dist/|\.git/' || true)
 if [ -n "$RESIDUE" ]; then
   echo "错误：以下文件仍残留 __APP_NAME__，替换遗漏：" >&2
   echo "$RESIDUE" >&2
