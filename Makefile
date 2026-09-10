@@ -26,8 +26,8 @@ test: ## 运行 Go 测试（含迁移框架冒烟测试）
 lint: ## 静态检查（Go 护栏 + go vet + 前端 ESLint）
 	go test ./internal/guard/ && go vet $(GO_PKGS) && cd frontend && npx eslint "src/**/*.{vue,ts,js}"
 
-smoke: ## 冒烟测试（构建后 IPC/绑定握手）—— 待 ci-release change 实现
-	@echo "未实现：smoke 待 ci-release change 落地冒烟脚本" && exit 1
+smoke: ## 冒烟测试（构建 → 启动 → 断言 → 清理）
+	bash scripts/smoke.sh
 
 package: ## 打包安装包（当前平台，如 .app/.exe）
 	$(WAILS) build -clean
