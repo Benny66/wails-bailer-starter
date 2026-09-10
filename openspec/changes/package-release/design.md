@@ -22,10 +22,12 @@ Wails v2.15.0 的打包能力（已实测源码 `cmd/wails/build.go`）：
 
 ## Decisions
 
-### D1: 参数化用 `make package [OS]`，OS ∈ {空, windows, macos, linux}
+### D1: 参数化用 `make package os=<OS>`，OS ∈ {空, windows, macos, linux}
 - 空 → 当前平台。
 - `windows` → 交叉编译，唯一被 Wails 支持的跨平台目标。
 - `macos`/`linux` → 仅当 `uname` 匹配时允许，否则报错"请在 X 平台执行"。
+
+> 注：Makefile 的 `$(os)` 是变量，故语法为 `make package os=windows`（非 `make package windows`）。
 
 ### D2: mac 安装包用 hdiutil 封装 .dmg
 `.app` 打包后执行：

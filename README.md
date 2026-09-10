@@ -42,8 +42,8 @@ make package   # 打包安装包
 | 命令 | 作用 |
 |---|---|
 | `make dev` | 启动开发态（wails dev，前端热更新） |
-| `make build` | 编译当前平台产物 |
-| `make package` | 打包安装包（.app/.exe） |
+| `make build` | 编译当前平台产物（快速，.app 不封装 dmg） |
+| `make package` | 打包真安装包（`make package os=windows\|macos\|linux`） |
 | `make test` | 运行 Go 测试（含架构护栏） |
 | `make lint` | 静态检查（护栏 + go vet + ESLint） |
 | `make smoke` | 冒烟测试（构建 → 启动 → 断言 → 清理） |
@@ -102,7 +102,16 @@ Windows 端依赖 WebView2 运行时。大多数 Win10/11 已预装；若未安�
 
 ## 打包与发布
 
-- 本地打包：`make package`
+```bash
+make package              # 打包当前平台真安装包（mac 产 .dmg，win 产 .exe）
+make package os=windows   # 交叉编译 Windows .exe（mac/linux 上可用）
+make package os=macos     # 仅 mac 上可用（Wails 不支持交叉编译 mac）
+make package os=linux     # 仅 linux 上可用（Wails 不支持交叉编译 linux）
+```
+
+- **产物位置**：`build/bin/`。
+- **mac**：`.app` 会封装为 `.dmg`（hdiutil，系统自带）。Windows：有 `makensis`（NSIS）时产 `.exe` 安装器，否则降级为裸 exe。
+- **母版防呆**：含 `__APP_NAME__` 占位符时拒绝打包，需先 `scripts/init.sh` 实例化。
 - CI：`.github/workflows/build.yml` 在 push/PR 时自动跑静态检查 + 三平台编译，产物上传为 artifact。
 - 版本号管理：`scripts/release.sh`（可选，版本号 + 打包 + release 说明）。
 
