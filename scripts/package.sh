@@ -141,7 +141,7 @@ APPLESCRIPT
 
     trap - EXIT
     cleanup_dmg
-    echo "✓ 已生成: $DMG（含 Applications 软链 + 拖拽引导）"
+    echo "✓ 已生成: ${DMG}（含 Applications 软链 + 拖拽引导）"
     ;;
   linux)
     "$WAILS" build -clean
@@ -150,7 +150,7 @@ APPLESCRIPT
   windows)
     if command -v makensis >/dev/null 2>&1; then
       "$WAILS" build -platform windows/amd64 -nsis -installscope "$SCOPE"
-      echo "✓ 已生成: build/bin/（.exe 安装器，安装范围: $SCOPE）"
+      echo "✓ 已生成: build/bin/（.exe 安装器，安装范围: ${SCOPE}）"
     else
       echo "提示：未找到 makensis（NSIS 编译器），无法生成 .exe 安装器。" >&2
       echo "  安装方式：macOS → brew install makensis；Windows → 装 NSIS (nsis.sourceforge.io)" >&2
