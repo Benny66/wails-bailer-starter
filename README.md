@@ -103,14 +103,23 @@ Windows 端依赖 WebView2 运行时。大多数 Win10/11 已预装；若未安�
 ## 打包与发布
 
 ```bash
-make package              # 打包当前平台真安装包（mac 产 .dmg，win 产 .exe）
-make package os=windows   # 交叉编译 Windows .exe（mac/linux 上可用）
-make package os=macos     # 仅 mac 上可用（Wails 不支持交叉编译 mac）
-make package os=linux     # 仅 linux 上可用（Wails 不支持交叉编译 linux）
+make package                          # 打包当前平台真安装包
+make package os=windows               # 交叉编译 Windows .exe 安装器（默认 scope=user）
+make package os=windows scope=machine # 装到 Program Files（需管理员）
+make package os=macos                 # 仅 mac 上可用（Wails 不支持交叉编译 mac）
+make package os=linux                 # 仅 linux 上可用（Wails 不支持交叉编译 linux）
 ```
 
 - **产物位置**：`build/bin/`。
-- **mac**：`.app` 会封装为 `.dmg`（hdiutil，系统自带）。Windows：有 `makensis`（NSIS）时产 `.exe` 安装器，否则降级为裸 exe。
+
+- **macOS 安装**：产出 `.dmg`，内含 `MyApp.app` + `Applications` 软链 + 拖拽引导（背景图/箭头）。
+  用户**拖拽 app 到 Applications** 即完成安装。macOS 没有"安装"动作——`.app` 本身就是完整应用。
+
+- **Windows 安装**：产出 NSIS `.exe` 安装器（需 `makensis`，见下），**双击走安装向导**即装好。
+  - `scope=user`（默认）：装到 `%LOCALAPPDATA%\Programs`，**免管理员**，适合分发给普通员工。
+  - `scope=machine`：装到 `Program Files`，需管理员权限，适合 IT 统一部署。
+  - 无 `makensis` 时降级为裸 exe（非安装器），脚本会提示安装方式（macOS: `brew install makensis`；Windows: 装 [NSIS](https://nsis.sourceforge.io/)）。
+
 - **母版防呆**：含 `__APP_NAME__` 占位符时拒绝打包，需先 `scripts/init.sh` 实例化。
 - CI：`.github/workflows/build.yml` 在 push/PR 时自动跑静态检查 + 三平台编译，产物上传为 artifact。
 - 版本号管理：`scripts/release.sh`（可选，版本号 + 打包 + release 说明）。
