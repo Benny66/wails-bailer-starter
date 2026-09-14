@@ -74,6 +74,31 @@ insert_before_anchor() {
   }' CONTENT="$content_file" marker="$marker" "$target" > "$target.tmp" && mv "$target.tmp" "$target"
 }
 
+# 幂等插入：目标文件已含该行则跳过（比较时忽略首尾空白）。
+# 用途：import 注入。每次 make gen 都注入同样的 import，
+# 非幂等会让第 2 个模块起产生重复 import（编译报 redeclared）。
+# 注意：用 substr 剥离首尾 Tab/空格，不用 gsub 的交替正则——
+# macOS BSD awk 对 `a|b` 形式的 gsub 模式处理与 GNU awk 不一致。
+insert_line_if_absent() {
+  local target="$1" marker="$2" line="$3"
+  if awk -v want="$line" '
+    function trim(s) {
+      sub(/^[ \t]+/, "", s)
+      sub(/[ \t]+$/, "", s)
+      return s
+    }
+    { if (trim($0) == trim(want)) found = 1 }
+    END { exit !found }
+  ' "$target"; then
+    return 0   # 已存在，跳过
+  fi
+  local tmp
+  tmp=$(mktemp)
+  printf '%s\n' "$line" > "$tmp"
+  insert_before_anchor "$target" "$marker" "$tmp"
+  rm -f "$tmp"
+}
+
 # ---- 生成文件（从 _example 模板复制 + 占位符替换） ----
 replace < "_example/model/example.go" > "internal/model/${SNAKE}.go"
 replace < "_example/service/example_service.go" > "internal/service/${SNAKE}_service.go"
@@ -82,11 +107,11 @@ replace < "_example/frontend/ExampleList.vue" > "frontend/src/views/${SNAKE}/${P
 
 # ---- 锚点注入（内容先写临时文件，再 awk 插入） ----
 
-# 0. app.go import：在 `// gen:import` 前插入 internal/model
-TMP=$(mktemp)
-printf '\t"__APP_NAME__/internal/model"\n' > "$TMP"
-insert_before_anchor "app.go" "// gen:import" "$TMP"
-rm -f "$TMP"
+# 0. app.go import：在 `// gen:import` 前幂等插入 internal/model + internal/page。
+# 绑定方法签名用了 page.Request / page.Result（分页契约），故两个 import 都要有。
+# 幂等：重复生成模块不会产生重复 import（否则编译报 redeclared）。
+insert_line_if_absent "app.go" "// gen:import" '	"__APP_NAME__/internal/model"'
+insert_line_if_absent "app.go" "// gen:import" '	"__APP_NAME__/internal/page"'
 
 # 1. AllModels() 注册模型
 TMP=$(mktemp)

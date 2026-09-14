@@ -7,12 +7,12 @@ WAILS := $(shell go env GOPATH)/bin/wails
 # 项目自身的 Go 包（排除 node_modules 里被 npm 拉进来的 Go 代码，如 flatted）
 GO_PKGS := $(shell go list ./... | grep -v node_modules)
 
-.PHONY: help dev build test lint smoke package gen
+.PHONY: help dev build test lint smoke package gen verify-gen
 
 help: ## 列出所有命令及用途
 	@echo "可用命令："
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-10s %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
 
 dev: ## 启动开发态（wails dev，含前端热更新）
 	$(WAILS) dev
@@ -35,3 +35,6 @@ package: ## 打包真安装包（make package os=windows|macos|linux [scope=user
 
 gen: ## 生成新模块（锚点注入 + 幂等）—— make gen name=<module>
 	bash scripts/gen.sh $(name)
+
+verify-gen: ## 生成器端到端验证（临时沙箱：生成 2 个模块 → 编译 → 护栏）
+	bash scripts/verify-gen.sh

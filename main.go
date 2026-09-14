@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"__APP_NAME__/internal/apperr"
 	"__APP_NAME__/internal/config"
 	"__APP_NAME__/internal/database"
 	"__APP_NAME__/internal/logging"
@@ -56,6 +57,10 @@ func main() {
 		Title:  "__APP_NAME__",
 		Width:  1024,
 		Height: 768,
+		// 错误协议：把 Go 的 error 序列化为 JSON 字符串，前端 JSON.parse 还原为 {code,message}。
+		// 注意：ErrorFormatter 签名是 func(error) any，但【必须】返回 string——
+		// 返回对象会被前端 new Error(payload) 强转成 "[object Object]"（Wails v2.15.0 实测）。
+		ErrorFormatter: apperr.Format,
 		// 无边框按平台分叉：Windows/Linux 自绘标题栏（三按钮），macOS 用原生交通灯。
 		// macOS 必须 false，否则 Wails 跳过 NSWindowStyleMaskTitled，交通灯消失（见 design D3）。
 		Frameless: frameless(),

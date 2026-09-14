@@ -97,8 +97,32 @@ func parseGoDirectDeps(t *testing.T, path string) map[string]bool {
 		t.Fatalf("读取 go.mod 失败: %v", err)
 	}
 	out := map[string]bool{}
-	re := regexp.MustCompile(`^\s*([\w./\-~]+)\s+v[\w.\-+]+`)
+	// 只从 require 块/行里取依赖，并限定 module 路径形态（必须含 . 或 /）。
+	// 不用「任意行 + ^\s*(\S+)\s+v...」的宽松正则：那会把 module 声明行
+	// `module verifygen` 误当依赖——「verifygen」以 v 开头，恰好像版本号，
+	// 导致任何以 v 开头的项目名被凭空报出一个叫 "module" 的未登记依赖。
+	re := regexp.MustCompile(`^\s*([\w.\-~]+(?:/[\w.\-~]+)+)\s+v[\w.\-+]+`)
+	inRequire := false
 	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(trimmed, "require ("):
+			inRequire = true
+			continue
+		case inRequire && trimmed == ")":
+			inRequire = false
+			continue
+		case strings.HasPrefix(trimmed, "require ") && !strings.HasPrefix(trimmed, "require ("):
+			// 单行形式：require github.com/x/y v1.2.3
+			body := strings.TrimPrefix(trimmed, "require ")
+			if m := re.FindStringSubmatch(body); m != nil {
+				out[m[1]] = true
+			}
+			continue
+		}
+		if !inRequire {
+			continue
+		}
 		if strings.Contains(line, "// indirect") {
 			continue
 		}

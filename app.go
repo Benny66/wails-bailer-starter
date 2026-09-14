@@ -6,6 +6,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"__APP_NAME__/internal/apperr"
 	"__APP_NAME__/internal/config"
 	"__APP_NAME__/internal/dialog"
 	"__APP_NAME__/internal/service"
@@ -104,9 +105,18 @@ func (a *App) GetTheme() string {
 }
 
 // SetTheme 保存主题设置并写回配置文件。
+// 入参非法返回 apperr.Validation（契约：业务错误经 apperr 构造，前端据 code 分流）。
 func (a *App) SetTheme(theme string) error {
+	// 合法值：dark / light / ""（空串 = 未设置，语义为"跟随系统"）。
+	if theme != "" && theme != "dark" && theme != "light" {
+		return apperr.Validation("主题取值非法，仅支持 dark/light")
+	}
 	a.cfg.Theme = theme
-	return a.cfg.Save()
+	if err := a.cfg.Save(); err != nil {
+		// 落盘失败是系统错误，经 Wrap 归一化为 internal（原始错误保留在 Detail）。
+		return apperr.Wrap(err)
+	}
+	return nil
 }
 
 // gen:bind
