@@ -83,55 +83,87 @@ case "$TARGET" in
     DMG="build/bin/${APP_NAME}.dmg"
     [ -d "$APP" ] || { echo "错误：未找到 .app 产物 $APP" >&2; exit 1; }
 
+    # ---- 布局常量（单一来源）----
+    # 窗口尺寸与图标落点必须同源：背景图箭头的锚点由 ICON_* 推导，
+    # 与 osascript 写入的图标落点共用同一 container 坐标系，绝不依赖「宽/2」
+    # （窗口 bounds 宽 ≠ content 视口宽，后者受 Finder 侧栏宽度影响而浮动）。
+    WIN_X=100; WIN_Y=100; WIN_W=600; WIN_H=400
+    ICON_Y=200
+    ICON_APP_X=150          # 应用图标落点（container 坐标，position = 图标中心）
+    ICON_APPS_X=450         # Applications 软链落点
+    ARROW_CX=$(( (ICON_APP_X + ICON_APPS_X) / 2 ))   # 箭头水平中心 = 两图标中点
+
+    # ---- 卷名：/Volumes/<name> 是 Finder 能解析的硬要求 ----
+    # 用 mktemp -d 当挂载点会让 Finder 认不出卷（tell disk 报 -1728），
+    # 整个布局静默失效。故必须挂到 /Volumes/<volname>，且与 -volname 同名。
+    VOLNAME="$APP_NAME"
+    if [ -e "/Volumes/$VOLNAME" ]; then
+      VOLNAME="${APP_NAME}-$$"     # 同名冲突（残留挂载/同名卷）→ 加后缀规避
+    fi
+    MOUNT_PT="/Volumes/$VOLNAME"
+
     # ---- 1. 准备 staging 目录：app + Applications 软链 + 背景图 ----
     STAGING="$(mktemp -d)"
     TMP_DMG="$(mktemp -u).dmg"        # 可读写中间态
-    MOUNT_PT="$(mktemp -d)"
+    VERIFY_PT="$(mktemp -d)"          # 回读校验挂载点（只读，无需 Finder 解析）
     cleanup_dmg() {
       hdiutil detach "$MOUNT_PT" -quiet 2>/dev/null || true
-      rm -rf "$STAGING" "$MOUNT_PT" "$TMP_DMG" 2>/dev/null || true
+      hdiutil detach "$VERIFY_PT" -quiet 2>/dev/null || true
+      rm -rf "$STAGING" "$VERIFY_PT" "$TMP_DMG" 2>/dev/null || true
     }
     trap cleanup_dmg EXIT
 
     cp -R "$APP" "$STAGING/"
     ln -s /Applications "$STAGING/Applications"     # 软链：拖进去即装
 
-    BG_SRC="build/darwin/dmg-background.png"
-    if [ -f "$BG_SRC" ]; then
-      mkdir -p "$STAGING/.background"
-      cp "$BG_SRC" "$STAGING/.background/bg.png"
+    # ---- 背景图：构建期合成（应用名 + 按锚点定位的箭头）----
+    # 合成到临时文件，不污染入库的占位图 build/darwin/dmg-background.png。
+    BG_SRC=""
+    if command -v swift >/dev/null 2>&1 || [ -f build/darwin/dmg-background.tpl.png ] || [ -f build/darwin/dmg-background.png ]; then
+      BG_TMP="$(mktemp -u).png"
+      if bash scripts/compose-dmg-bg.sh "$BG_TMP" "$APP_NAME" "$ARROW_CX" "$ICON_Y" "$WIN_W" "$WIN_H"; then
+        if [ -f "$BG_TMP" ] && [ -s "$BG_TMP" ]; then
+          mkdir -p "$STAGING/.background"
+          cp "$BG_TMP" "$STAGING/.background/bg.png"
+          BG_SRC=".background:bg.png"
+        fi
+      fi
+      rm -f "$BG_TMP" 2>/dev/null || true
     fi
 
     # ---- 2. 生成可读写 dmg（UDRW，才能写 Finder 布局） ----
-    hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDRW "$TMP_DMG" >/dev/null
+    hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -ov -format UDRW "$TMP_DMG" >/dev/null
 
-    # ---- 3. 挂载 ----
+    # ---- 3. 挂载到 /Volumes/<VOLNAME>（Finder 可解析；mktemp 路径不行）----
     hdiutil attach "$TMP_DMG" -mountpoint "$MOUNT_PT" -nobrowse -quiet
 
-    # ---- 4. 设置 Finder 布局（美化：窗口尺寸 + 背景图 + 图标定位） ----
+    # ---- 4. 设置 Finder 布局（窗口尺寸 + 背景图 + 图标定位）----
     # 布局设置失败不阻断（降级为无美化的 dmg + 软链仍可用）
-    if [ -f "$BG_SRC" ]; then
-      osascript <<APPLESCRIPT >/dev/null 2>&1 || echo "提示：Finder 布局设置失败，dmg 仍可用（无美化）" >&2
+    # 注意：窗口/图标尺寸【始终】执行；仅「背景图」一行受 BG_SRC 有无控制。
+    BG_LINE=""
+    if [ -n "$BG_SRC" ]; then
+      BG_LINE="set background picture of theViewOptions to file \"$BG_SRC\""
+    fi
+    osascript <<APPLESCRIPT >/dev/null 2>&1 || echo "提示：Finder 布局设置失败，dmg 仍可用（无美化）" >&2
 tell application "Finder"
-  tell disk "$APP_NAME"
+  tell disk "$VOLNAME"
     open
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set bounds of container window to {100, 100, 700, 500}
+    set bounds of container window to {$WIN_X, $WIN_Y, $((WIN_X + WIN_W)), $((WIN_Y + WIN_H))}
     set theViewOptions to icon view options of container window
     set arrangement of theViewOptions to not arranged
     set icon size of theViewOptions to 100
-    set background picture of theViewOptions to file ".background:bg.png"
-    set position of item "${APP_NAME}.app" of container window to {150, 200}
-    set position of item "Applications" of container window to {450, 200}
+    $BG_LINE
+    set position of item "${APP_NAME}.app" of container window to {$ICON_APP_X, $ICON_Y}
+    set position of item "Applications" of container window to {$ICON_APPS_X, $ICON_Y}
     update without registering applications
     delay 1
     close
   end tell
 end tell
 APPLESCRIPT
-    fi
 
     # ---- 5. 卸载 + 压缩为只读最终 dmg ----
     sync
@@ -139,9 +171,29 @@ APPLESCRIPT
     rm -f "$DMG"
     hdiutil convert "$TMP_DMG" -format UDZO -o "$DMG" >/dev/null
 
+    # ---- 6. 回读校验：挂载成品，确认布局（.DS_Store + 背景图引用）真的写进去了 ----
+    POLISHED=0
+    if hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$VERIFY_PT" -quiet 2>/dev/null; then
+      if [ -f "$VERIFY_PT/.DS_Store" ] && grep -aq "bg.png" "$VERIFY_PT/.DS_Store"; then
+        POLISHED=1
+      fi
+      hdiutil detach "$VERIFY_PT" -quiet 2>/dev/null || true
+    else
+      echo "⚠ 无法校验：成品 dmg 挂载失败（不代表无美化）。校准写法可能已随 macOS 版本变化，请检查。" >&2
+    fi
+
     trap - EXIT
     cleanup_dmg
-    echo "✓ 已生成: ${DMG}（含 Applications 软链 + 拖拽引导）"
+
+    if [ "$POLISHED" = "1" ]; then
+      echo "✓ 已生成: ${DMG}（含 Applications 软链 + 拖拽引导，美化已生效）"
+    else
+      echo "⚠ 已生成: ${DMG}（含 Applications 软链；无美化——本机无 GUI 会话或 Finder 不可用）" >&2
+      if [ "${STRICT_POLISH:-0}" = "1" ]; then
+        echo "错误：STRICT_POLISH=1 且美化未生效，按失败处理。" >&2
+        exit 1
+      fi
+    fi
     ;;
   linux)
     "$WAILS" build -clean

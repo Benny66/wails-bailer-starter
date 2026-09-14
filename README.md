@@ -114,6 +114,12 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
 
 - **macOS 安装**：产出 `.dmg`，内含 `MyApp.app` + `Applications` 软链 + 拖拽引导（背景图/箭头）。
   用户**拖拽 app 到 Applications** 即完成安装。macOS 没有"安装"动作——`.app` 本身就是完整应用。
+  - **背景图**：由 `build/darwin/dmg-background.tpl.png`（纯底模板）在打包时**合成**——
+    叠上当前应用名与拖拽箭头。要换底色/留白，替换该模板即可；箭头由 `scripts/compose-dmg-bg.sh`
+    按图标锚点绘制（与 Finder 图标同一坐标系），**不要**把箭头画进模板，否则会与合成箭头重叠。
+  - **美化校验**：打包结束会打印 `✓ 美化已生效` 或 `⚠ 降级产物（无美化）`——后者表示本机
+    无 GUI 会话（如 SSH/CI）或 Finder 不可用，dmg 仍可用只是没美化。CI 若要求必须美化成功，
+    设 `STRICT_POLISH=1`（降级时按构建失败处理）。
 
 - **Windows 安装**：产出 NSIS `.exe` 安装器（需 `makensis`，见下），**双击走安装向导**即装好。
   - `scope=user`（默认）：装到 `%LOCALAPPDATA%\Programs`，**免管理员**，适合分发给普通员工。
@@ -128,3 +134,5 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
 
 - **macOS 无系统托盘**：Wails v2 的 NSApplication delegate 与所有 systray 库冲突（详见 `openspec/changes/runtime/design.md` D1），故 macOS 关闭即退出，托盘能力仅在 Windows/Linux 提供。
 - **无 headless 模式**：冒烟测试定位为本地验证，CI 只编译不启动 GUI。
+- **dmg 挂载卷不在 Finder 侧栏**：Finder 默认不显示已挂载的卷，且脚本无法替用户改 Finder 偏好。
+  用户误关 dmg 窗口后，再次双击 `.dmg` 即可重新打开挂载卷（不会重复挂载）。
