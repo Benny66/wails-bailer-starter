@@ -40,6 +40,11 @@
    任何用正则/AST 解析源码做断言的护栏，解析到 0 个结果必须报错，
    而非当作"通过"静默放行。附一句"写法可能已变更，请同步更新护栏解析规则"。
 
+   推论：**没有任何症状的失效必须有护栏**。接线漏了、注入路径写错、镜像漂移——
+   这类问题不报错、不崩溃，只是某条链路默默断掉（如不接 `options.App.Logger`
+   则前端日志全部丢失）。凡属此类，都要编译成会红的检查
+   （见 `internal/guard/wiring_test.go`）。
+
 6. **分层纪律** ⚙️（由 `internal/guard/layer_test.go` 强制）
    `app.go` 绑定方法层不得 import gorm/database（经 service 层）；model 层是叶子；
    每个带 BaseModel 的结构体必须登记进 `AllModels()`。

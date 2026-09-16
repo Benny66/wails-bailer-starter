@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"log/slog"
+	"os"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"__APP_NAME__/internal/appdir"
 	"__APP_NAME__/internal/apperr"
+	"__APP_NAME__/internal/appinfo"
 	"__APP_NAME__/internal/config"
 	"__APP_NAME__/internal/dialog"
+	"__APP_NAME__/internal/event"
 	"__APP_NAME__/internal/reveal"
 	"__APP_NAME__/internal/service"
 	"__APP_NAME__/internal/tray"
@@ -61,7 +64,8 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.trayStop != nil {
 		a.trayStop()
 	}
-	// 2. 落盘配置
+	// 2. 采集窗口几何并落盘配置（一次 Save 同时写主题与窗口状态）
+	a.captureWindowGeometry(ctx)
 	if a.cfg != nil {
 		if err := a.cfg.Save(); err != nil {
 			slog.Error("保存配置失败", "err", err)
@@ -71,6 +75,28 @@ func (a *App) shutdown(ctx context.Context) {
 	if err := a.svc.Close(); err != nil {
 		slog.Error("关闭数据库失败", "err", err)
 	}
+}
+
+// captureWindowGeometry 把当前窗口尺寸与最大化状态写入配置，供下次启动还原。
+//
+// 注意：窗口【最大化时不去读尺寸】——此时读到的是屏幕尺寸，回填后用户下次取消最大化
+// 会得到一个占满屏幕的"还原"尺寸。保持上次的非最大化尺寸才符合直觉。
+// 读失败不阻断关闭：窗口几何是体验优化，不该让退出流程失败。
+func (a *App) captureWindowGeometry(ctx context.Context) {
+	if a.cfg == nil {
+		return
+	}
+	maximised := runtime.WindowIsMaximised(ctx)
+	if !maximised {
+		if width, height := runtime.WindowGetSize(ctx); width > 0 && height > 0 {
+			a.cfg.WindowWidth, a.cfg.WindowHeight = width, height
+		}
+	}
+	a.cfg.WindowMaximised = maximised
+
+	// 落盘前记一条：用户报「窗口大小没记住」时，先看这行是否出现、值是否合理。
+	slog.Info("窗口几何已记录",
+		"width", a.cfg.WindowWidth, "height", a.cfg.WindowHeight, "maximised", maximised)
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +171,66 @@ func (a *App) OpenDataDir() error {
 		return apperr.Wrap(err)
 	}
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 绑定方法：应用信息与数据库导出
+// ---------------------------------------------------------------------------
+
+// GetAppInfo 返回版本、平台与关键路径，供「关于」界面与排障使用。
+// 排障时让用户念一次本方法的返回值，版本/日志位置就都齐了。
+func (a *App) GetAppInfo() (appinfo.Info, error) {
+	info, err := appinfo.Current(appName)
+	if err != nil {
+		return appinfo.Info{}, apperr.Wrap(err)
+	}
+	return info, nil
+}
+
+// GetLaunchArgs 返回本次启动的启动参数（不含可执行文件路径）。
+//
+// 二次启动（应用已在运行时再次唤起）的参数【不】经此返回，而是经
+// `app:second-instance` 事件推送——那一次前端已经挂载，事件不会丢。
+func (a *App) GetLaunchArgs() []string {
+	if len(os.Args) <= 1 {
+		return []string{}
+	}
+	// 返回副本：os.Args 是全局切片，直接把内部状态交出去不合适。
+	out := make([]string, len(os.Args)-1)
+	copy(out, os.Args[1:])
+	return out
+}
+
+// ExportDatabase 把数据库完整导出到 targetPath（通常来自 SelectSaveFile）。
+// 目标已存在会被覆盖（用户已在系统保存对话框确认过）；位于数据目录内会被拒绝。
+func (a *App) ExportDatabase(targetPath string) error {
+	return a.svc.ExportDatabase(appName, targetPath)
+}
+
+// ActionSecondInstance 是「应用被二次启动」的事件动作（单一真相）。
+// 前端镜像在 frontend/src/lib/app.ts 的 AppEvent，由 internal/guard/parity_test.go 断言一致。
+const ActionSecondInstance = "second-instance"
+
+// SecondInstancePayload 是 `app:second-instance` 事件的载荷。
+// 前端侧的类型镜像见 frontend/src/lib/app.ts 的 SecondInstancePayload，字段名需一致。
+type SecondInstancePayload struct {
+	// Args 二次启动时的命令行参数。
+	Args []string `json:"args"`
+	// WorkingDirectory 二次启动时的工作目录。
+	WorkingDirectory string `json:"working_dir"`
+}
+
+// notifySecondInstance 把二次启动的参数推给前端（事件名走事件契约 <domain>:<action>）。
+// 应用上下文未就绪时只记日志：这是尽力而为的通知，不该 panic。
+func (a *App) notifySecondInstance(args []string, workDir string) {
+	if a.ctx == nil {
+		slog.Warn("应用上下文尚未就绪，二次启动参数未推送", "args", args)
+		return
+	}
+	runtime.EventsEmit(a.ctx, event.Name("app", ActionSecondInstance), SecondInstancePayload{
+		Args:             args,
+		WorkingDirectory: workDir,
+	})
 }
 
 // gen:bind

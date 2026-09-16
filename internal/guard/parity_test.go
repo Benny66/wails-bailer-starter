@@ -61,6 +61,14 @@ func TestFrontendMirrorsMatchGoSourceOfTruth(t *testing.T) {
 			tsObject: "PageSize",
 			goSuffix: "PageSize",
 		},
+		{
+			// 应用级事件动作（main 包），如 ActionSecondInstance
+			name:     "应用事件动作",
+			goPkg:    ".",
+			tsFile:   "frontend/src/lib/app.ts",
+			tsObject: "AppEvent",
+			goPrefix: "Action",
+		},
 	}
 
 	root := projectRoot()

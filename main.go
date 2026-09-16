@@ -4,9 +4,9 @@ import (
 	"embed"
 	"log"
 	"log/slog"
-	"os"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
@@ -14,6 +14,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"__APP_NAME__/internal/apperr"
+	"__APP_NAME__/internal/appinfo"
 	"__APP_NAME__/internal/config"
 	"__APP_NAME__/internal/database"
 	"__APP_NAME__/internal/logging"
@@ -30,12 +31,16 @@ var trayIconBytes []byte
 const appName = "__APP_NAME__"
 
 func main() {
-	// 日志：开发态 Debug，生产态 Info（生产态由 -tags production 或环境变量决定，这里默认 Debug 便于开发）。
+	// 日志：开发态 Debug，生产态 Info（构建模式判定见 buildmode_*.go）。
 	logLevel := slog.LevelDebug
-	if os.Getenv("WAILS_PRODUCTION") == "1" {
+	if !debugBuild {
 		logLevel = slog.LevelInfo
 	}
-	closeLog, err := logging.Init(logging.Options{AppName: appName, Level: logLevel})
+	closeLog, err := logging.Init(logging.Options{
+		AppName: appName,
+		Level:   logLevel,
+		Version: appinfo.Resolve(),
+	})
 	if err != nil {
 		log.Fatalf("日志初始化失败: %v", err)
 	}
@@ -52,11 +57,27 @@ func main() {
 	}
 	app := NewApp(service.New(db), cfg)
 
+	// 窗口几何：在【创建期】给定尺寸与最大化状态，首帧即正确。
+	// 不能在运行期设——OnStartup 在 goroutine 中执行，紧接着窗口就显示，二者存在竞态，
+	// 用户会看到窗口跳一下（见 openspec/changes/runtime-pipeline/design.md D1）。
+	winWidth, winHeight := cfg.WindowSize()
+	startState := options.Normal
+	if cfg.WindowMaximised {
+		startState = options.Maximised
+	}
+
 	// Create application with options
 	err = wails.Run(&options.App{
-		Title:  "__APP_NAME__",
-		Width:  1024,
-		Height: 768,
+		Title:            "__APP_NAME__",
+		Width:            winWidth,
+		Height:           winHeight,
+		WindowStartState: startState,
+		// Wails 的日志接口接到 slog：不接的话，前端的 LogError/LogInfo 与 Wails 自身的
+		// 内部错误【只写 stdout】——打包后无人可见，且不接不会有任何症状。
+		// 故这条接线由 internal/guard/wiring_test.go 强制。
+		Logger:             logging.WailsAdapter{},
+		LogLevel:           logger.DEBUG,
+		LogLevelProduction: logger.INFO,
 		// 错误协议：把 Go 的 error 序列化为 JSON 字符串，前端 JSON.parse 还原为 {code,message}。
 		// 注意：ErrorFormatter 签名是 func(error) any，但【必须】返回 string——
 		// 返回对象会被前端 new Error(payload) 强转成 "[object Object]"（Wails v2.15.0 实测）。
@@ -71,6 +92,9 @@ func main() {
 				slog.Info("检测到二次启动，唤起已有窗口", "args", data.Args)
 				runtime.Show(app.ctx)
 				runtime.WindowUnminimise(app.ctx)
+				// 把二次启动的启动参数推给前端（复用事件契约）。
+				// 首次启动的参数不经事件——那时前端还没订阅，必然丢；用 GetLaunchArgs 查询。
+				app.notifySecondInstance(data.Args, data.WorkingDirectory)
 			},
 		},
 		// 关闭 = 隐藏到托盘（Windows/Linux）；macOS 无托盘，关闭即退出。

@@ -7,7 +7,9 @@
 - 后端：Go + gorm + SQLite（纯 Go 驱动，跨平台交叉编译无 CGO 依赖）
 - 前端：Vue3 + Vite + Element Plus + Vue Router + Pinia
 - 设计系统：暗色优先的专业工具风，单主色派生全色阶
-- 运行时：单实例锁、系统托盘（Windows/Linux）、日志轮转、配置读写、原生对话框、崩溃落盘、数据目录可达
+- 运行时：单实例锁（含二次启动参数转发）、系统托盘（Windows/Linux）、窗口几何记忆、
+  日志轮转、配置读写、原生对话框、崩溃落盘、数据目录可达、数据库导出
+- 可观测：Wails 日志接入 slog（前端日志同样落 `app.log`）、前端全局错误兜底、版本可追溯
 - 工程化：架构护栏（AST/ESLint/TS 类型）、依赖登记制、`make gen` 模块生成器、OpenSpec 治理
 
 ## 实例化新项目
@@ -96,8 +98,10 @@ logo 在 `build/appicon.png`（前端资源与托盘图标共用）。
 - **模型注册双向校验**：带 `BaseModel` 的结构体必须登记进 `AllModels()`。
 - **依赖登记制**：新增依赖必须登记 `deps.yaml`（双向校验）。
 - **前端 import 安全**：渲染层禁 import node 能力；禁硬编码色值。
-- **前端镜像一致性**：错误码/事件动作/页大小三处前端镜像必须与 Go 单一真相逐项相等
-  （`internal/guard/parity_test.go`，双向校验）。
+- **前端镜像一致性**：错误码/事件动作/页大小/应用事件四处前端镜像必须与 Go 单一真相
+  逐项相等（`internal/guard/parity_test.go`，双向校验）。
+- **接线不静默缺失**：`options.App.Logger` 必须接线、版本注入目标必须真实存在
+  （`internal/guard/wiring_test.go`）——这类问题漏了没有任何症状。
 - **类型检查**：`make lint` 含 `vue-tsc`（开发态 vite 不做类型检查，缺了这步会漂到打包才炸）。
 
 护栏"感知自己瞎了"：解析到 0 个结果会 Fatal，而非静默放行。
@@ -140,5 +144,14 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
 
 - **macOS 无系统托盘**：Wails v2 的 NSApplication delegate 与所有 systray 库冲突（详见 `openspec/changes/runtime/design.md` D1），故 macOS 关闭即退出，托盘能力仅在 Windows/Linux 提供。
 - **无 headless 模式**：冒烟测试定位为本地验证，CI 只编译不启动 GUI。
+- **窗口位置不持久化**：只记住尺寸与最大化。Wails v2 没有创建期位置选项，运行期设置与
+  窗口显示存在竞态（会看到跳动），且需屏幕边界夹取，否则窗口可能还原到已拔掉的显示器上
+  （详见 `openspec/changes/runtime-pipeline/design.md` D1）。
+- **`make build` 的版本号显示为 `dev`**：裸 `wails build` 不注入版本，且它会传
+  `-buildvcs=false` 让 Go 自带的 VCS 信息也不可用。发布路径（`make package` /
+  `scripts/release.sh`）会注入 `git describe` 的结果。要本地产出带版本的包就用它们。
+- **裸 `go build -tags production` 在 macOS 上链接失败**：Wails 需要 `CGO_LDFLAGS` 注入
+  `-framework UniformTypeIdentifiers`，`wails build` 会自动加而裸 `go build` 不会。
+  这是 Wails 的既有行为，不是本仓问题；用 `make build` / `make package` 即可。
 - **dmg 挂载卷不在 Finder 侧栏**：Finder 默认不显示已挂载的卷，且脚本无法替用户改 Finder 偏好。
   用户误关 dmg 窗口后，再次双击 `.dmg` 即可重新打开挂载卷（不会重复挂载）。

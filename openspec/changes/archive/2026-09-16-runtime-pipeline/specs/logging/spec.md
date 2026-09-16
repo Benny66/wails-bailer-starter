@@ -1,25 +1,8 @@
-# logging Specification
+# logging
 
-## Purpose
-TBD - created by archiving change runtime. Update Purpose after archive.
-## Requirements
-### Requirement: 双写日志
-应用 MUST 同时输出控制台与文件日志，并支持分级。
+日志：双写、轮转、分级，以及来源接入。
 
-#### Scenario: 分级输出
-- **WHEN** 应用在开发态运行
-- **THEN** Debug 级日志输出到控制台；生产态输出 Info 级
-
-#### Scenario: 文件落盘
-- **WHEN** 应用运行
-- **THEN** 日志写入用户配置目录下的日志文件
-
-### Requirement: 日志轮转
-日志文件 MUST 按大小自动轮转，避免无限增长。
-
-#### Scenario: 达到大小即轮转
-- **WHEN** 日志文件超过设定大小
-- **THEN** 自动轮转为新文件，保留设定份数，旧文件归档
+## ADDED Requirements
 
 ### Requirement: 框架与前端日志接入同一出口
 Wails 的日志接口 MUST 接入应用日志，使前端与框架内部产生的日志落到同一个文件。
@@ -63,4 +46,3 @@ Wails 的日志接口 MUST 接入应用日志，使前端与框架内部产生�
 #### Scenario: 从日志定位日志
 - **WHEN** 用户只提供了日志内容的一段
 - **THEN** 可从中读到日志文件的绝对路径，便于取得完整日志
-

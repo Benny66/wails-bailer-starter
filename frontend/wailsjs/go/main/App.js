@@ -6,8 +6,20 @@ export function Confirm(arg1, arg2) {
   return window['go']['main']['App']['Confirm'](arg1, arg2);
 }
 
+export function ExportDatabase(arg1) {
+  return window['go']['main']['App']['ExportDatabase'](arg1);
+}
+
+export function GetAppInfo() {
+  return window['go']['main']['App']['GetAppInfo']();
+}
+
 export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
+}
+
+export function GetLaunchArgs() {
+  return window['go']['main']['App']['GetLaunchArgs']();
 }
 
 export function GetTheme() {

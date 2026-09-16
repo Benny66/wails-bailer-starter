@@ -42,8 +42,6 @@ dmg 背景图构建期合成 + 箭头与图标同源锚点对齐。
 - **WHEN** 合成背景图
 - **THEN** 仅调用 `sips`/`qlmanage`/`swift` 等系统自带能力，不新增 npm/go/brew 依赖
 
-## MODIFIED Requirements
-
 ### Requirement: mac dmg 挂载点契约
 Finder 布局 MUST 在挂载于 `/Volumes/<name>` 的卷上设置；使用 `mktemp -d` 等非
 `/Volumes` 路径作挂载点会令 Finder 无法解析卷、布局静默失效。
