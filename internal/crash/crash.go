@@ -8,9 +8,10 @@ package crash
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"time"
+
+	"__APP_NAME__/internal/appdir"
 )
 
 // Wrap 在独立 goroutine 运行 fn，捕获 panic 并落盘崩溃日志。
@@ -26,18 +27,14 @@ func Wrap(appName string, fn func()) {
 	}()
 }
 
-// writeCrashLog 将崩溃信息写入独立日志文件。
+// writeCrashLog 将崩溃信息写入独立日志文件（与常规日志同目录，见 internal/appdir）。
 func writeCrashLog(appName string, r interface{}) {
-	dir, err := os.UserConfigDir()
+	// 时间戳文件名，避免覆盖历史崩溃
+	ts := time.Now().Format("20060102-150405")
+	path, err := appdir.File(appName, fmt.Sprintf("crash-%s.log", ts))
 	if err != nil {
 		return
 	}
-	dataDir := filepath.Join(dir, appName)
-	_ = os.MkdirAll(dataDir, 0o755)
-
-	// 时间戳文件名，避免覆盖历史崩溃
-	ts := time.Now().Format("20060102-150405")
-	path := filepath.Join(dataDir, fmt.Sprintf("crash-%s.log", ts))
 
 	buf := make([]byte, 64*1024)
 	n := runtime.Stack(buf, true)

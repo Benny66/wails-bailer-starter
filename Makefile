@@ -23,9 +23,12 @@ build: ## 编译当前平台产物（快速，.app 不封装 dmg）
 test: ## 运行 Go 测试（含迁移框架冒烟测试）
 	go test $(GO_PKGS)
 
-lint: ## 静态检查（gofmt + Go 护栏 + go vet + 前端 ESLint）
+# 前端类型检查不可省：开发态 vite 只剥离类型不做检查，缺了这步类型错误会漂到打包才炸。
+# 注意 recipe 内的 `cd frontend` 只影响该行（每行一个 shell），不会泄漏给后续行。
+lint: ## 静态检查（gofmt + Go 护栏 + go vet + 前端 ESLint + TS 类型）
 	@test -z "$$(gofmt -l . | grep -v node_modules)" || (echo "gofmt 未通过，请运行 gofmt -w 修复:" && gofmt -l . | grep -v node_modules && exit 1)
-	go test ./internal/guard/ && go vet $(GO_PKGS) && cd frontend && npx eslint "src/**/*.{vue,ts,js}"
+	go test ./internal/guard/ && go vet $(GO_PKGS)
+	cd frontend && npx eslint "src/**/*.{vue,ts,js}" && npm run typecheck
 
 smoke: ## 冒烟测试（构建 → 启动 → 断言 → 清理）
 	bash scripts/smoke.sh

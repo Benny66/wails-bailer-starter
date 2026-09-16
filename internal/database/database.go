@@ -7,29 +7,22 @@ package database
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
+	"__APP_NAME__/internal/appdir"
 	"__APP_NAME__/internal/model"
 )
 
 // Init 建立数据库连接并执行迁移，返回 *gorm.DB。
-// 数据库文件位于用户配置目录下（Windows: %AppData%，macOS: ~/Library/Application Support，Linux: ~/.config）。
+// 数据库文件位于应用数据目录下（见 internal/appdir），与配置、日志同目录。
 func Init(appName string) (*gorm.DB, error) {
-	dir, err := os.UserConfigDir()
+	dbPath, err := appdir.File(appName, appName+".db")
 	if err != nil {
-		return nil, fmt.Errorf("获取用户配置目录失败: %w", err)
+		return nil, err
 	}
 
-	dataDir := filepath.Join(dir, appName)
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return nil, fmt.Errorf("创建数据目录失败: %w", err)
-	}
-
-	dbPath := filepath.Join(dataDir, appName+".db")
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("打开数据库失败: %w", err)

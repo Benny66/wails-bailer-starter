@@ -54,6 +54,21 @@ export default [
     },
   },
 
+  // TS 文件：关掉非 TS 感知的基础 no-unused-vars
+  // 基础规则会把【类型注解里】的函数类型参数（`handler: (payload: T) => void`）
+  // 当作真实绑定，误报 "payload is defined but never used"。
+  // 未使用变量改由 vue-tsc 的类型检查兜（tsconfig 的 noUnusedLocals /
+  // noUnusedParameters），它带类型信息，比基础规则更准，且尊重 `_` 前缀豁免。
+  //
+  // 已知边界：没有 lang="ts" 的纯 JS <script> 块不在 vue-tsc 的检查范围内，
+  // 其未使用变量两边都管不到。本仓页面一律 <script setup lang="ts">，暂不构成缺口。
+  {
+    files: ['**/*.ts', '**/*.vue'],
+    rules: {
+      'no-unused-vars': 'off',
+    },
+  },
+
   // 自定义规则
   {
     files: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.js'],

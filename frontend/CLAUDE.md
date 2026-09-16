@@ -23,6 +23,17 @@
 
 MUST 统一使用 `stores/`（Pinia 约定），禁止 `store/` 单复数混用。
 
+## 目录分工
+
+| 目录 | 放什么 |
+|---|---|
+| `lib/` | 管道契约（`invoke` / `event` / `page`），无 UI、不依赖 Vue |
+| `composables/` | 依赖 Vue 响应式或生命周期的 `useXxx`（如 `useEvent` / `usePagedList`） |
+| `components/` | 可复用组件（PascalCase 文件名） |
+| `views/` | 页面 |
+
+组合式函数 MUST 以 `use` 开头，且文件与其导出的函数同名（`usePagedList.ts` → `usePagedList`）。
+
 ## 调用 Go 后端
 
 - 前端调用 Go 方法走 wails 自动生成的绑定 `frontend/wailsjs/go/...`，

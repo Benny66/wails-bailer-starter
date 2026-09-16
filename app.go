@@ -6,9 +6,11 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"__APP_NAME__/internal/appdir"
 	"__APP_NAME__/internal/apperr"
 	"__APP_NAME__/internal/config"
 	"__APP_NAME__/internal/dialog"
+	"__APP_NAME__/internal/reveal"
 	"__APP_NAME__/internal/service"
 	"__APP_NAME__/internal/tray"
 	// gen:import
@@ -114,6 +116,32 @@ func (a *App) SetTheme(theme string) error {
 	a.cfg.Theme = theme
 	if err := a.cfg.Save(); err != nil {
 		// 落盘失败是系统错误，经 Wrap 归一化为 internal（原始错误保留在 Detail）。
+		return apperr.Wrap(err)
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 绑定方法：应用数据目录
+// ---------------------------------------------------------------------------
+
+// GetDataDir 返回应用数据目录的绝对路径（数据库、配置、日志同目录）。
+// 供前端展示/复制，便于用户自行定位日志。
+func (a *App) GetDataDir() (string, error) {
+	dir, err := appdir.Dir(appName)
+	if err != nil {
+		return "", apperr.Wrap(err)
+	}
+	return dir, nil
+}
+
+// OpenDataDir 在系统文件管理器中打开应用数据目录。
+func (a *App) OpenDataDir() error {
+	dir, err := appdir.Dir(appName)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if err := reveal.Open(dir); err != nil {
 		return apperr.Wrap(err)
 	}
 	return nil

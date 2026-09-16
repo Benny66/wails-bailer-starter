@@ -6,8 +6,16 @@ export function Confirm(arg1, arg2) {
   return window['go']['main']['App']['Confirm'](arg1, arg2);
 }
 
+export function GetDataDir() {
+  return window['go']['main']['App']['GetDataDir']();
+}
+
 export function GetTheme() {
   return window['go']['main']['App']['GetTheme']();
+}
+
+export function OpenDataDir() {
+  return window['go']['main']['App']['OpenDataDir']();
 }
 
 export function SelectDirectory(arg1) {

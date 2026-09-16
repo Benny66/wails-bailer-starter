@@ -18,6 +18,10 @@
    一条规则只允许有一个出处，其余消费者共同引用，禁止复制粘贴。
    - 模型清单唯一真相在 `internal/model/model.go` 的 `AllModels()`。
    - 依赖清单唯一真相在 `deps.yaml`。
+   - 应用数据目录（数据库/配置/日志/崩溃日志）唯一真相在 `internal/appdir`。
+   - 管道契约常量（错误码 / 事件动作 / 页大小上下界）的前端镜像由
+     `internal/guard/parity_test.go` 双向校验：改了 Go 不同步前端即红。
+     **镜像只许复制常量与类型，不许复制逻辑**——一件规则两个实现比一个常量两份更糟。
 
 2. **依赖登记制** ⚙️（由 `internal/guard/deps_test.go` 双向校验）
    新增依赖不能只 `go get` / `npm install`，必须登记并附理由。
@@ -29,6 +33,8 @@
 
 4. **验证入口统一** ⚙️
    只记 `make <target>`，不记零散脚本路径。`make dev/build/test/lint/smoke/package/gen`。
+   `make lint` = gofmt + Go 护栏 + `go vet` + ESLint + `vue-tsc` 类型检查，
+   是提交前唯一需要的静态验证入口。
 
 5. **护栏必须"感知自己瞎了"** ⚙️（由 `internal/guard/` 各护栏落实）
    任何用正则/AST 解析源码做断言的护栏，解析到 0 个结果必须报错，

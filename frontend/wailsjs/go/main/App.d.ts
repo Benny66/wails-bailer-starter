@@ -3,7 +3,11 @@
 
 export function Confirm(arg1:string,arg2:string):Promise<boolean>;
 
+export function GetDataDir():Promise<string>;
+
 export function GetTheme():Promise<string>;
+
+export function OpenDataDir():Promise<void>;
 
 export function SelectDirectory(arg1:string):Promise<string>;
 

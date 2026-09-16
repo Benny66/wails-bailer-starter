@@ -146,6 +146,18 @@ EOF
 insert_before_anchor "frontend/src/layouts/AppShell.vue" "// gen:menu" "$TMP"
 rm -f "$TMP"
 
+# ---- 生成物格式化 ----
+# 锚点注入把 import 追加到 import 块【尾部】，天然不满足 gofmt 的字母序
+# （model/page 会排在 service/tray 之后）——不修的话 `make gen` 之后 `make lint`
+# 必然变红，且报错指向 app.go 而非生成器，很难联想到是 gen.sh 的锅。
+# 生成器对自己产出做格式化是常规做法，gofmt 也是 Go 项目的既有前提。
+if command -v gofmt >/dev/null 2>&1; then
+  gofmt -w app.go internal/model/model.go "internal/model/${SNAKE}.go" \
+    "internal/service/${SNAKE}_service.go"
+else
+  echo "警告：未找到 gofmt，生成物的 import 顺序可能不合规（make lint 会报 app.go）" >&2
+fi
+
 echo "已生成模块 ${NAME}（PascalCase: ${PASCAL}）"
 echo "  - model:        internal/model/${SNAKE}.go"
 echo "  - service:      internal/service/${SNAKE}_service.go"

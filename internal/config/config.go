@@ -1,7 +1,6 @@
 // Package config 负责应用本地配置（config.json）的读写。
 //
-// 配置落在用户配置目录（Windows: %AppData%，macOS: ~/Library/Application Support，
-// Linux: ~/.config）下的 appName 目录，与数据库同目录。
+// 配置落在应用数据目录（见 internal/appdir，与数据库/日志同目录）。
 // 首次启动无配置文件时写入默认值。
 package config
 
@@ -9,7 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"__APP_NAME__/internal/appdir"
 )
 
 // Config 是应用配置的持久化结构。
@@ -31,7 +31,7 @@ func Default() *Config {
 
 // Load 读取配置；文件不存在时写入默认值并返回默认配置。
 func Load(appName string) (*Config, error) {
-	path, err := configPath(appName)
+	path, err := appdir.File(appName, "config.json")
 	if err != nil {
 		return nil, err
 	}
@@ -70,17 +70,4 @@ func (c *Config) Save() error {
 		return fmt.Errorf("写入配置失败: %w", err)
 	}
 	return nil
-}
-
-// configPath 返回配置文件路径，并确保目录存在。
-func configPath(appName string) (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("获取用户配置目录失败: %w", err)
-	}
-	dataDir := filepath.Join(dir, appName)
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return "", fmt.Errorf("创建配置目录失败: %w", err)
-	}
-	return filepath.Join(dataDir, "config.json"), nil
 }

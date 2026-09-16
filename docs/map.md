@@ -22,15 +22,17 @@
 | `internal/model/` | 数据模型 + `AllModels()` 注册表（模型唯一真相） |
 | `internal/database/` | gorm + SQLite 连接、迁移执行 |
 | `internal/service/` | 业务服务层（绑定方法经此访问数据库） |
+| `internal/appdir/` | **单一真相**：应用数据目录（数据库/配置/日志/崩溃日志同目录） |
 | `internal/config/` | `config.json` 读写 |
 | `internal/logging/` | 日志初始化（文件轮转 + 分级） |
 | `internal/dialog/` | 原生对话框封装 |
+| `internal/reveal/` | 在系统文件管理器中打开目录（跨平台） |
 | `internal/tray/` | 系统托盘（macOS 为 no-op，见其包注释） |
 | `internal/crash/` | panic 落盘（供业务显式包裹长驻 goroutine） |
 | `internal/apperr/` | **契约**：错误协议（code/message + `Format`） |
 | `internal/page/` | **契约**：分页协议（`Request` / `Result[T]`） |
 | `internal/event/` | **契约**：事件协议（`<domain>:<action>` + payload） |
-| `internal/guard/` | 架构护栏（以 go test 形式运行，含契约护栏） |
+| `internal/guard/` | 架构护栏（以 go test 形式运行，含契约护栏与**前端镜像一致性**护栏） |
 
 ## 前端（`frontend/src/`）
 
@@ -42,7 +44,10 @@
 | `layouts/` | 布局（AppShell：标题栏 + 侧栏 + 内容区） |
 | `stores/` | Pinia 状态 |
 | `router/` | 路由（hash 模式） |
-| `lib/invoke.ts` | **契约**：绑定调用包装 + 错误归一化 |
+| `lib/invoke.ts` | **契约**：绑定调用包装 + 错误归一化（镜像 Go 的错误码） |
+| `lib/event.ts` | **契约**：事件协议前端镜像（事件名 / payload / `onEvent` 订阅） |
+| `lib/page.ts` | **契约**：分页协议前端镜像（类型 / 页大小常量） |
+| `composables/` | 组合式函数（`useEvent` 自动解绑、`usePagedList` 列表加载） |
 | `styles/` | 设计令牌与主题（tokens / theme / element 覆盖） |
 | `views/` | 页面（`make gen` 生成的模块页面落在此处） |
 

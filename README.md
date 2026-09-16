@@ -7,8 +7,8 @@
 - 后端：Go + gorm + SQLite（纯 Go 驱动，跨平台交叉编译无 CGO 依赖）
 - 前端：Vue3 + Vite + Element Plus + Vue Router + Pinia
 - 设计系统：暗色优先的专业工具风，单主色派生全色阶
-- 运行时：单实例锁、系统托盘（Windows/Linux）、日志轮转、配置读写、原生对话框、崩溃落盘
-- 工程化：架构护栏（AST/ESLint）、依赖登记制、`make gen` 模块生成器、OpenSpec 治理
+- 运行时：单实例锁、系统托盘（Windows/Linux）、日志轮转、配置读写、原生对话框、崩溃落盘、数据目录可达
+- 工程化：架构护栏（AST/ESLint/TS 类型）、依赖登记制、`make gen` 模块生成器、OpenSpec 治理
 
 ## 实例化新项目
 
@@ -61,7 +61,10 @@ internal/model/            # 数据模型 + AllModels() 注册表（唯一真相
 internal/service/          # 业务服务层（CRUD 逻辑）
 internal/database/         # gorm + SQLite 连接、迁移
 internal/guard/            # 架构护栏（AST 断言，随 go test 跑）
-internal/{config,logging,dialog,tray,crash}/  # 运行时服务
+internal/appdir/           # 应用数据目录（数据库/配置/日志同处的唯一真相）
+internal/{config,logging,dialog,tray,crash,reveal}/  # 运行时服务
+frontend/src/lib/          # 管道契约前端侧（invoke / event / page）
+frontend/src/composables/  # 组合式函数（useEvent / usePagedList）
 frontend/src/styles/       # 设计令牌（tokens.css / theme.css）
 frontend/src/layouts/      # 应用壳（侧栏 + 标题栏）
 frontend/src/views/        # 页面
@@ -93,6 +96,9 @@ logo 在 `build/appicon.png`（前端资源与托盘图标共用）。
 - **模型注册双向校验**：带 `BaseModel` 的结构体必须登记进 `AllModels()`。
 - **依赖登记制**：新增依赖必须登记 `deps.yaml`（双向校验）。
 - **前端 import 安全**：渲染层禁 import node 能力；禁硬编码色值。
+- **前端镜像一致性**：错误码/事件动作/页大小三处前端镜像必须与 Go 单一真相逐项相等
+  （`internal/guard/parity_test.go`，双向校验）。
+- **类型检查**：`make lint` 含 `vue-tsc`（开发态 vite 不做类型检查，缺了这步会漂到打包才炸）。
 
 护栏"感知自己瞎了"：解析到 0 个结果会 Fatal，而非静默放行。
 
