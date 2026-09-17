@@ -168,6 +168,8 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
   （dmg / NSIS 安装器），最后创建 Release 并附上产物；变更说明由 GitHub 按提交自动生成。
   - 版本号取自 tag（去掉 `v` 前缀），写进 `wails.json` 的 `info.productVersion` 后
     由既有链路派生到产物与应用内——与本地发布共用 `scripts/set-version.sh`
+  - **打 tag 前先把版本号提交进仓库**（`bash scripts/set-version.sh 1.0.0` 并提交），
+    否则仓库状态停留在旧版本、本地构建的产物与已发布的版本对不上
   - **母版仓库本身也能打 tag**：检测到占位符就跳过打包，Release 仍会创建（只含源码归档）
 - 版本号管理：`scripts/release.sh <version>`（本地发布：写版本 + 三平台打包 + release 说明，
   适合无网/离线场景；产物需自行上传）。

@@ -4,7 +4,7 @@
   "outputfilename": "__APP_NAME__",
   "info": {
     "productName": "__APP_NAME__",
-    "productVersion": "0.1.0",
+    "productVersion": "1.0.0",
     "comments": "Built using Wails (https://wails.io)"
   },
   "frontend:install": "npm install",
