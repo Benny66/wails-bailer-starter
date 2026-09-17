@@ -23,6 +23,13 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm install
 
+      # 必须先构建前端：根包（main.go）用 //go:embed 嵌入 frontend/dist，
+      # 而该目录被 gitignore —— 干净检出里没有它，编译根包会失败：
+      #   `pattern all:frontend/dist: no matching files found`
+      # 此前本 job 只 npm install 不构建，导致 check 每次必红。
+      - name: Build frontend (供 go:embed 使用)
+        run: cd frontend && npm run build
+
       - name: Run tests (含护栏)
         run: make test
 
@@ -63,6 +70,14 @@ jobs:
 
       - name: Build
         run: make build
+
+      # 生成器端到端验证：连生 2 个模块 → 生成 bindings → 编译 → gofmt → 护栏。
+      # 这是本仓唯一的端到端检查，历史上抓到过 3 个真实 bug（缺 import / 注入非幂等 /
+      # 产物不符 gofmt），此前只在本地跑、靠人记得。
+      # 只在 ubuntu 腿跑一次即可（检查内容与平台无关），且 Windows runner 无 rsync。
+      - name: Generator end-to-end (verify-gen)
+        if: matrix.os == 'ubuntu-latest'
+        run: make verify-gen
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

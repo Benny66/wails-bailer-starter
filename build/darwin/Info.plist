@@ -7,8 +7,12 @@
         <string>{{.Info.ProductName}}</string>
         <key>CFBundleExecutable</key>
         <string>{{.OutputFilename}}</string>
+        <!-- Wails 默认生成 com.wails.<name>，等于宣称 Wails 是厂商；
+             __BUNDLE_PREFIX__ 由 scripts/init.sh 替换为你的公司域名（默认 com.example）。
+             注意：bundle id 是 macOS 识别应用的标识，多个产品共用会让
+             登录项、权限授予、文件关联互相串味。 -->
         <key>CFBundleIdentifier</key>
-        <string>com.wails.{{safeBundleID .Name}}</string>
+        <string>__BUNDLE_PREFIX__.{{safeBundleID .Name}}</string>
         <key>CFBundleVersion</key>
         <string>{{.Info.ProductVersion}}</string>
         <key>CFBundleGetInfoString</key>

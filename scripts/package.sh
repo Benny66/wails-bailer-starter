@@ -37,24 +37,9 @@ if [ -z "$APP_NAME" ]; then
   exit 1
 fi
 
-# ---- 版本注入 ----
-# 把版本号编进二进制，用户报障时才能核对（app.log 首行 + 设置页的 GetAppInfo）。
-#
-# 为何必须显式注入：wails 给 go build 传了 -buildvcs=false，Go 自带的 vcs.revision
-# 拿不到，不注入则版本恒为 "dev"（实测确认）。
-# 版本源用 git describe：打过 tag 得到 v1.2.3，未打 tag 得到提交短哈希——始终可得，
-# 且提交号在排查时比语义版本更精确。
-#
-# 模块路径从 go.mod 现读，不假定它等于 APP_NAME：链接器的 -X 对【不存在】的符号是
-# 静默忽略的，路径写错不会报错，只会让版本悄悄退回 "dev"。
-MODULE="$(awk '/^module /{print $2; exit}' go.mod)"
-if [ -z "$MODULE" ]; then
-  echo "错误：无法从 go.mod 读取 module 路径" >&2
-  exit 1
-fi
-VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
-LDFLAGS="-X ${MODULE}/internal/appinfo.InjectedVersion=${VERSION}"
-echo "==> 版本: ${VERSION}"
+# 版本注入不在本脚本里做：统一由 scripts/build.sh 负责（读 wails.json 的
+# info.productVersion，同时喂给产物与 -ldflags）。下面所有构建都经它调用，
+# 避免「各脚本各算一份版本」的双源漂移。
 
 # ---- 确定目标平台 ----
 CURRENT="$(uname -s)"
@@ -95,7 +80,7 @@ echo "==> 打包目标: $TARGET (当前: $CUR_PLATFORM) ..."
 
 case "$TARGET" in
   macos)
-    "$WAILS" build -clean -ldflags "$LDFLAGS"
+    bash scripts/build.sh -clean
     command -v hdiutil >/dev/null 2>&1 || { echo "错误：未找到 hdiutil" >&2; exit 1; }
 
     APP="build/bin/${APP_NAME}.app"
@@ -215,18 +200,18 @@ APPLESCRIPT
     fi
     ;;
   linux)
-    "$WAILS" build -clean -ldflags "$LDFLAGS"
+    bash scripts/build.sh -clean
     echo "✓ 已生成: build/bin/${APP_NAME}"
     ;;
   windows)
     if command -v makensis >/dev/null 2>&1; then
-      "$WAILS" build -platform windows/amd64 -nsis -installscope "$SCOPE" -ldflags "$LDFLAGS"
+      bash scripts/build.sh -platform windows/amd64 -nsis -installscope "$SCOPE"
       echo "✓ 已生成: build/bin/（.exe 安装器，安装范围: ${SCOPE}）"
     else
       echo "提示：未找到 makensis（NSIS 编译器），无法生成 .exe 安装器。" >&2
       echo "  安装方式：macOS → brew install makensis；Windows → 装 NSIS (nsis.sourceforge.io)" >&2
       echo "  当前降级为裸 exe（非安装器）。" >&2
-      "$WAILS" build -platform windows/amd64 -ldflags "$LDFLAGS"
+      bash scripts/build.sh -platform windows/amd64
       echo "✓ 已生成: build/bin/（裸 .exe，非安装器）"
     fi
     ;;

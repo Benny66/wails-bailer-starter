@@ -1,15 +1,18 @@
 // Package appinfo 汇总应用的版本与运行环境信息，供日志与「关于」界面使用。
 //
 // 版本来源分三层回退（见 Resolve）：
-//  1. 构建期注入：-ldflags "-X <module>/internal/appinfo.InjectedVersion=v1.2.3"
-//     （scripts/package.sh 与 release.sh 会注入 git describe 的结果）
+//  1. 构建期注入：-ldflags "-X <module>/internal/appinfo.InjectedVersion=0.1.0"
 //  2. Go build info 的 VCS 提交短哈希（仅当用裸 go build 且未传 -buildvcs=false 时可得）
 //  3. "dev"
 //
 // 注意：`wails build` 会传 -buildvcs=false，第 2 层在实际打包时【拿不到】。
-// 所以发布产物必须有第 1 层的注入，否则版本恒为 "dev"——而链接器的 -X
+// 所以产物必须有第 1 层的注入，否则版本恒为 "dev"——而链接器的 -X
 // 对不存在的符号是静默忽略的，写错路径不会有任何提示（故由
 // internal/guard/wiring_test.go 核对注入目标）。
+//
+// 版本号与提交号分开注入是刻意的：版本号受 NSIS 的 VIProductVersion 限制必须是
+// 数字点分格式（0.1.0），没有位置放提交信息；而排查时提交号比版本更精确。
+// 注入统一由 scripts/build.sh 完成（wails.json 的 info.productVersion 是单一真相）。
 //
 // 为何要有这个包：此前版本号只存在于产物文件名里，二进制完全不知道自己是哪个版本，
 // app.log 里也没有版本上下文——用户报障说「我用的是 0.3」，无从核对。
@@ -23,9 +26,13 @@ import (
 	"__APP_NAME__/internal/appdir"
 )
 
-// InjectedVersion 是构建期注入的版本号，默认空串。
+// InjectedVersion 是构建期注入的版本号（数字点分，如 0.1.0），默认空串。
 // 命名不用 Version 是为了给同名函数 Version() 让路，避免同名变量与函数混淆。
 var InjectedVersion string
+
+// InjectedCommit 是构建期注入的 VCS 提交短哈希，默认空串。
+// 与版本号分开注入：版本号必须是数字点分格式（NSIS 限制），放不下提交信息。
+var InjectedCommit string
 
 // Resolve 返回版本号：注入值 > VCS 提交短哈希 > "dev"。
 func Resolve() string {
@@ -36,6 +43,14 @@ func Resolve() string {
 		return c
 	}
 	return "dev"
+}
+
+// Commit 返回提交短哈希：注入值优先，回退 build info，都没有则空串。
+func Commit() string {
+	if InjectedCommit != "" {
+		return InjectedCommit
+	}
+	return commit()
 }
 
 // commit 返回 VCS 提交短哈希；非 git 构建或信息缺失时返回空串。
@@ -84,7 +99,7 @@ func Current(appName string) (Info, error) {
 	}
 	return Info{
 		Version:  Resolve(),
-		Commit:   commit(),
+		Commit:   Commit(),
 		Platform: Platform(),
 		DataDir:  dir,
 		LogFile:  logFile,

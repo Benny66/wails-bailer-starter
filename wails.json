@@ -2,6 +2,11 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "__APP_NAME__",
   "outputfilename": "__APP_NAME__",
+  "info": {
+    "productName": "__APP_NAME__",
+    "productVersion": "0.1.0",
+    "comments": "Built using Wails (https://wails.io)"
+  },
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",

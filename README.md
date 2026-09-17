@@ -20,7 +20,16 @@ cd ../myapp
 make dev                      # 启动开发态
 ```
 
-`init.sh` 会把母版的占位符 `__APP_NAME__` 全局替换为你的项目名（go.mod / import / wails.json / index.html / 生成器脚本），并清空母版的归档历史、保留能力基线。
+```bash
+bash scripts/init.sh myapp com.mycompany   # 第二个参数可选：macOS bundle id 前缀
+```
+
+`init.sh` 会把母版的占位符全局替换为你的项目名（go.mod / import / wails.json / index.html / 生成器脚本），
+并生成 macOS 的 bundle id 前缀，最后清空母版的归档历史、保留能力基线。
+
+> **bundle id 默认是 `com.example.<项目名>`**——`com.example` 是 IANA 保留的示例域名，
+> 明显是占位符。发布前请换成你的公司域名（第二个参数，或直接改 `build/darwin/Info.plist`）。
+> 它是 macOS 识别应用的标识，多个产品共用会让登录项、权限授予、文件关联互相串味。
 
 ## 环境准备
 
@@ -38,6 +47,10 @@ make dev       # 启动开发态（含前端热更新）
 make build     # 编译当前平台产物
 make package   # 打包安装包
 ```
+
+> **首次 clone 后先跑 `make dev` / `make build` 再跑 `make test`**：根包（`main.go`）用
+> `//go:embed` 嵌入 `frontend/dist`，而该目录不入库。`make test` / `make lint` 会检测到
+> 缺失并直接告诉你修复命令（而不是抛一句难懂的 Go 编译错误）。
 
 ## 命令表
 
@@ -136,8 +149,15 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
   - `scope=machine`：装到 `Program Files`，需管理员权限，适合 IT 统一部署。
   - 无 `makensis` 时降级为裸 exe（非安装器），脚本会提示安装方式（macOS: `brew install makensis`；Windows: 装 [NSIS](https://nsis.sourceforge.io/)）。
 
-- **母版防呆**：含 `__APP_NAME__` 占位符时拒绝打包，需先 `scripts/init.sh` 实例化。
-- CI：`.github/workflows/build.yml` 在 push/PR 时自动跑静态检查 + 三平台编译，产物上传为 artifact。
+- **版本号单一真相**：`wails.json` 的 `info.productVersion`。wails 用它渲染
+  macOS `Info.plist`、Windows exe 版本资源与 NSIS 注册表；`scripts/build.sh` 把同一个值
+  经 `-ldflags` 注入应用内（`app.log` 首行 / `GetAppInfo`）。**四处同源**，发布时用
+  `bash scripts/release.sh <version>` 更新它。
+  - 所有构建都走 `scripts/build.sh`（`make build` 亦然），它是唯一的版本注入点；
+    macOS 构建后会回读产物 `Info.plist` 校验版本真的生效。
+- **母版防呆**：含占位符时拒绝打包，需先 `scripts/init.sh` 实例化。
+- CI：`.github/workflows/build.yml` 在 push/PR 时自动跑静态检查（`make test` / `make lint`）
+  + 三平台编译 + **生成器端到端验证**（`make verify-gen`，ubuntu 腿），产物上传为 artifact。
 - 版本号管理：`scripts/release.sh`（可选，版本号 + 打包 + release 说明）。
 
 ## 已知限制
@@ -147,9 +167,9 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
 - **窗口位置不持久化**：只记住尺寸与最大化。Wails v2 没有创建期位置选项，运行期设置与
   窗口显示存在竞态（会看到跳动），且需屏幕边界夹取，否则窗口可能还原到已拔掉的显示器上
   （详见 `openspec/changes/runtime-pipeline/design.md` D1）。
-- **`make build` 的版本号显示为 `dev`**：裸 `wails build` 不注入版本，且它会传
-  `-buildvcs=false` 让 Go 自带的 VCS 信息也不可用。发布路径（`make package` /
-  `scripts/release.sh`）会注入 `git describe` 的结果。要本地产出带版本的包就用它们。
+- **版本号只认数字点分格式（如 `0.1.0`）**：Windows 的 NSIS `VIProductVersion` 不接受
+  非数字版本（如 `v1.2.3` 的 `v` 前缀、git 短哈希），`build.sh` / `release.sh` 会提前拒绝。
+  追溯性由构建期注入的提交号承担（`GetAppInfo().commit` 与日志）。
 - **裸 `go build -tags production` 在 macOS 上链接失败**：Wails 需要 `CGO_LDFLAGS` 注入
   `-framework UniformTypeIdentifiers`，`wails build` 会自动加而裸 `go build` 不会。
   这是 Wails 的既有行为，不是本仓问题；用 `make build` / `make package` 即可。
