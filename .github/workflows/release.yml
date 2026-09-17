@@ -1,0 +1,173 @@
+name: Release
+
+# 打 tag 即自动发布：构建安装包 → 创建 Release（含自动生成的变更说明）→ 附加产物。
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# 版本号取自 tag（去掉前缀 v），经 scripts/set-version.sh 写入单一真相，
+# 再由 wails 渲染进 macOS Info.plist / Windows exe 版本资源 / NSIS 注册表。
+#
+# 三个 job 而非两个，是为了避免两条平台腿抢建同一个 Release：
+#   1. verify  —— 不从不绿的提交发版（tag 可以打在任意提交上）
+#   2. package —— 两平台并行打包，产物作为 workflow artifact 传递
+#   3. release —— 两腿都成功后，单点创建 Release 并附加全部产物
+on:
+  push:
+    tags: ['v*']
+
+# 创建 Release 需要写权限
+permissions:
+  contents: write
+
+jobs:
+  # 发版前先跑一遍静态检查：tag 可能被打在没走过 CI 的提交上
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend deps
+        run: cd frontend && npm install
+
+      # 根包用 //go:embed 嵌入 frontend/dist，干净检出里没有它，必须先构建前端
+      - name: Build frontend (供 go:embed 使用)
+        run: cd frontend && npm run build
+
+      - name: Run tests (含护栏)
+        run: make test
+
+      - name: Run lint
+        run: make lint
+
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: macos
+          - os: windows-latest
+            target: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        run: cd frontend && npm install
+
+      # Windows 安装器需要 NSIS；缺了 package.sh 会降级成裸 exe（不是安装器）
+      - name: Ensure NSIS (makensis)
+        if: matrix.target == 'windows'
+        shell: bash
+        run: |
+          if command -v makensis >/dev/null 2>&1; then
+            echo "makensis 已就绪"
+          else
+            choco install nsis -y --no-progress
+          fi
+          command -v makensis >/dev/null 2>&1 \
+            || { echo "错误：makensis 不可用，无法生成 .exe 安装器" >&2; exit 1; }
+
+      - name: 写入版本号（取自 tag）
+        shell: bash
+        run: bash scripts/set-version.sh "${GITHUB_REF_NAME#v}"
+
+      # 母版（含占位符）不能打包——package.sh 会拒绝，这里提前识别并跳过。
+      # 占位符【拆写】：本文件不在 init.sh 的替换范围内（*.yml 不在其列表），
+      # 写成连续字面量会在实例化后仍匹配，导致「永远是母版」的误判。
+      - name: Detect template
+        id: template
+        shell: bash
+        run: |
+          PH='__APP_''NAME__'
+          if git grep -q "$PH" -- go.mod wails.json main.go 2>/dev/null; then
+            echo "is_template=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::检测到母版占位符——跳过打包（母版无安装包可发，Release 只带源码归档）"
+          else
+            echo "is_template=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package
+        if: steps.template.outputs.is_template == 'false'
+        run: make package os=${{ matrix.target }}
+
+      # 产物按「应用名-版本-平台」重命名，用户看到的就是可用的资产名
+      - name: 收集产物
+        if: steps.template.outputs.is_template == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(node -p "require('./wails.json').outputfilename")"
+          V="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          if [ -f "build/bin/${APP}.dmg" ]; then
+            cp "build/bin/${APP}.dmg" "dist/${APP}-${V}-macos-universal.dmg"
+          fi
+          if [ -f "build/bin/${APP}-amd64-installer.exe" ]; then
+            cp "build/bin/${APP}-amd64-installer.exe" "dist/${APP}-${V}-windows-amd64-setup.exe"
+          elif [ -f "build/bin/${APP}.exe" ]; then
+            cp "build/bin/${APP}.exe" "dist/${APP}-${V}-windows-amd64.exe"
+          fi
+          echo "本次收集到的产物："
+          ls -la dist || true
+
+      - uses: actions/upload-artifact@v4
+        if: steps.template.outputs.is_template == 'false'
+        with:
+          name: installers-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: [verify, package]
+    runs-on: ubuntu-latest
+    steps:
+      # 母版不产安装包，此处没有 artifact 可下载——不是错误，Release 仍会带源码归档
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 创建 Release 并附加产物
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          # 先查后建：同一 tag 的失败重跑不该卡在「Release 已存在」上。
+          # 本 job 是单点执行（package 两条腿只传产物、不碰 Release），故无并发风险。
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在——本次只追加产物"
+          else
+            # --generate-notes：变更说明由 GitHub 按提交/PR 自动生成，不必手写
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+          if [ -d dist ] && [ -n "$(ls -A dist 2>/dev/null)" ]; then
+            gh release upload "$TAG" dist/* --clobber
+            echo "已附加产物："
+            ls -la dist
+          else
+            echo "无安装包产物——Release 只含 GitHub 自动附加的源码归档（母版即如此）"
+          fi

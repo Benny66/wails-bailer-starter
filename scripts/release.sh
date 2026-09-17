@@ -24,26 +24,9 @@ cd "$ROOT"
 
 APP_NAME="__APP_NAME__"
 
-# 版本号格式校验：NSIS 的 VIProductVersion 形如 "${INFO_PRODUCTVERSION}.0"，
-# 非数字版本（如 v1.2.3 的前缀 v、或 git describe 的 abc1234）会让 Windows
-# 打包在最后一步失败。此处早失败，好过打到一半才炸。
-if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+(\.[0-9]+){2,3}$'; then
-  echo "错误：版本 '$VERSION' 不是数字点分格式（如 0.1.0）" >&2
-  exit 1
-fi
-
-# 写入版本号单一真相：wails.json 的 info.productVersion。
-# 这一步就是「发布新版本」这个动作本身——其余全部派生自它：
-#   macOS Info.plist / Windows exe 版本资源 / NSIS 注册表（wails 渲染）
-#   + 应用内 app.log 与 GetAppInfo（scripts/build.sh 注入 -ldflags）
-# 此前本脚本的 VERSION 参数【只用于产物文件名】，二进制与系统里都查不到版本。
-sed -i '' "s|\"productVersion\": \"[^\"]*\"|\"productVersion\": \"${VERSION}\"|" wails.json 2>/dev/null \
-  || sed -i "s|\"productVersion\": \"[^\"]*\"|\"productVersion\": \"${VERSION}\"|" wails.json
-if ! grep -q "\"productVersion\": \"${VERSION}\"" wails.json; then
-  echo "错误：写入 wails.json 的 info.productVersion 失败（版本号未生效）" >&2
-  exit 1
-fi
-echo "==> 已将版本单一真相更新为 ${VERSION}（wails.json）"
+# 更新版本号单一真相（格式校验 + 写入 + 回读都在 set-version.sh 里，
+# 与 CI 的发布工作流共用同一处逻辑——两处各写一份版本是漂移的温床）。
+bash scripts/set-version.sh "$VERSION"
 
 echo "==> 打包版本 $VERSION ..."
 mkdir -p dist

@@ -60,7 +60,9 @@
 | 路径 | 内容 |
 |---|---|
 | `_example/` | 模块生成器模板 + 契约用法范例（**非产品页面**） |
+| `scripts/set-version.sh` | **版本写入唯一实现**（本地发布与 CI 发布共用） |
 | `scripts/build.sh` | **版本注入唯一入口**：读 `wails.json` 的 `info.productVersion`，同时喂给产物与 `-ldflags` |
+| `.github/workflows/` | `build.yml`（检查 + 编译矩阵）、`release.yml`（tag 触发自动发布） |
 | `scripts/gen.sh` | 模块生成器（`make gen name=<module>`） |
 | `scripts/verify-gen.sh` | 生成器端到端验证（`make verify-gen`） |
 | `scripts/package.sh` | 打包（dmg / NSIS 安装器） |
