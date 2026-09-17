@@ -153,6 +153,10 @@ jobs:
     needs: [verify, package]
     runs-on: ubuntu-latest
     steps:
+      # gh 需要仓库上下文（推断 owner/repo）——没有 checkout 会直接报
+      # 「not a git repository」。这一步不是为了取文件，是为了给 gh 上下文。
+      - uses: actions/checkout@v4
+
       # 母版不产安装包，此处没有 artifact 可下载——不是错误，Release 仍会带源码归档
       - uses: actions/download-artifact@v4
         continue-on-error: true
@@ -167,6 +171,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
+          # 失败时先看清是不是权限/认证问题（GITHUB_TOKEN 的 contents 权限）
+          gh auth status 2>&1 | head -3 || true
           # 先查后建：同一 tag 的失败重跑不该卡在「Release 已存在」上。
           # 本 job 是单点执行（package 两条腿只传产物、不碰 Release），故无并发风险。
           if gh release view "$TAG" >/dev/null 2>&1; then
