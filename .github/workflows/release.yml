@@ -75,18 +75,29 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm install
 
-      # Windows 安装器需要 NSIS；缺了 package.sh 会降级成裸 exe（不是安装器）
+      # Windows 安装器需要 NSIS；缺了 package.sh 会降级成裸 exe（不是安装器）。
+      #
+      # 实测坑：runner 上 NSIS 可能【已安装但不在 PATH 上】，只查 PATH 会误判为「没装」，
+      # 于是白白装一遍却仍用不了。故：先按安装位置找，再决定是否安装，
+      # 最后写进 GITHUB_PATH 供后续步骤使用（export 只影响本步骤）。
       - name: Ensure NSIS (makensis)
         if: matrix.target == 'windows'
         shell: bash
         run: |
-          if command -v makensis >/dev/null 2>&1; then
-            echo "makensis 已就绪"
+          set -euo pipefail
+          NSIS_WIN='C:\Program Files (x86)\NSIS'
+          NSIS_SH='/c/Program Files (x86)/NSIS'
+          if [ -x "$NSIS_SH/makensis.exe" ]; then
+            echo "makensis 已安装（$NSIS_WIN）"
           else
+            echo "未检测到 NSIS，尝试安装..."
             choco install nsis -y --no-progress
           fi
+          echo "$NSIS_WIN" >> "$GITHUB_PATH"
+          export PATH="$PATH:$NSIS_SH"
           command -v makensis >/dev/null 2>&1 \
-            || { echo "错误：makensis 不可用，无法生成 .exe 安装器" >&2; exit 1; }
+            || { echo "错误：makensis 不可用，无法生成 .exe 安装器（查找路径 $NSIS_WIN）" >&2; exit 1; }
+          echo "makensis 就绪" 
 
       - name: 写入版本号（取自 tag）
         shell: bash
