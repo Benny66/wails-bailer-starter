@@ -23,7 +23,12 @@ func Init(appName string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	// Logger 必须显式接入：gorm 默认 logger 写 stdout，打包后的 GUI 应用无人可见，
+	// 慢查询与 SQL 错误会静默消失（同类问题见 internal/logging/wails.go）。
+	// 该接线由 internal/guard/wiring_test.go 强制。
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+		Logger: slogLogger{},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("打开数据库失败: %w", err)
 	}

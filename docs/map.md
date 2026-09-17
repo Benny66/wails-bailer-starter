@@ -45,7 +45,8 @@
 | `layouts/` | 布局（AppShell：标题栏 + 侧栏 + 内容区） |
 | `stores/` | Pinia 状态 |
 | `router/` | 路由（hash 模式） |
-| `lib/invoke.ts` | **契约**：绑定调用包装 + 错误归一化（镜像 Go 的错误码） |
+| `lib/invoke.ts` | **契约**：绑定调用包装（错误归一化 + 耗时采样，镜像 Go 的错误码） |
+| `lib/error-report.ts` | **契约**：异常上报（全局兜底 + Vue 错误钩子） |
 | `lib/event.ts` | **契约**：事件协议前端镜像（事件名 / payload / `onEvent` 订阅） |
 | `lib/page.ts` | **契约**：分页协议前端镜像（类型 / 页大小常量） |
 | `lib/app.ts` | **契约**：应用级事件（`onSecondInstance`）与启动参数 |

@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { GetTheme, SetTheme } from '../../wailsjs/go/main/App'
+import { invoke } from '../lib/invoke'
+import { logError } from '../lib/log'
 
 type Theme = 'dark' | 'light'
 
@@ -22,9 +24,11 @@ export const useAppStore = defineStore('app', () => {
   function setTheme(next: Theme) {
     theme.value = next
     document.documentElement.setAttribute('data-theme', next)
-    // 异步落盘到 config.json（Go 侧），失败不阻断切换
-    SetTheme(next).catch((err) => {
-      console.error('主题持久化失败:', err)
+    // 异步落盘到 config.json（Go 侧），失败不阻断切换。
+    // 经 invoke 包装：错误归一化为 AppError 并写进 app.log —— 原来只 console.error，
+    // 而打包后的应用没有 DevTools，那条错误等于没记。
+    invoke(() => SetTheme(next), 'SetTheme').catch((err) => {
+      logError('主题持久化失败', err)
     })
   }
 
@@ -33,7 +37,9 @@ export const useAppStore = defineStore('app', () => {
   async function initTheme() {
     let resolved: Theme
     try {
-      const saved = await GetTheme()
+      // 经 invoke：这一步在挂载之前，是启动时间线上唯一的一次后端往返，
+      // 故必须进 IPC 统计（见 main.ts 的启动分段）
+      const saved = await invoke(() => GetTheme(), 'GetTheme')
       resolved = saved === 'dark' || saved === 'light' ? saved : (systemPrefersDark() ? 'dark' : 'light')
     } catch {
       // 非 wails 环境（纯 vite dev）或调用失败，fallback 系统偏好

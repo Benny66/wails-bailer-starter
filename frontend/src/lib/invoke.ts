@@ -5,8 +5,13 @@
 //   - 前端收到的是 Error 实例，其 .message 是那段 JSON。
 //   - 本模块负责 JSON.parse 还原为 AppError，并容错退化。
 //
-// 这是「管道」而非「产品面」：只负责把错误归一化成稳定形状，
+// 这是「管道」而非「产品面」：只负责把错误归一化成稳定形状、并记录调用耗时，
 // 不做任何 UI（toast / 弹窗由下游按 AppError.code 自行决定）。
+//
+// 依赖方向单向：invoke → log（慢调用告警）。异常上报在 lib/error-report.ts，
+// 它依赖本模块与 log，不反向被依赖——避免 log ←→ invoke 的双向循环。
+
+import { logWarn } from './log'
 
 /** 归一化后的应用错误。code 供分流，message 可直接展示。 */
 export interface AppError {
@@ -44,22 +49,66 @@ export function normalizeError(raw: unknown): AppError {
 }
 
 /**
- * 包裹一次绑定调用，把错误归一化为 AppError 后重新抛出。
+ * 超过该耗时（毫秒）的绑定调用会记一条告警。
+ *
+ * 取值依据：本地进程间调用的正常量级在个位数毫秒；50ms 已属明显异常，
+ * 又不会把正常的首帧调用（如读取配置）误报成问题。
+ */
+export const SLOW_CALL_MS = 50
+
+// 启动期的调用聚合。刻意不逐条记录：绝大多数调用只有几毫秒，逐条记会让日志量
+// 随调用次数线性增长，把真正要看的告警淹没。聚合值由启动日志一行带出。
+let callCount = 0
+let maxMs = 0
+let slowestLabel = ''
+
+/**
+ * 返回启动期绑定调用的聚合统计，供启动日志一行带出。
+ *
+ * 每次启动都有一行「IPC 概况」，且不随调用量增长——这是刻意的：
+ * 逐条记录会让日志量失控，而汇总足以回答「这次启动的 IPC 代价有多大」。
+ */
+export function ipcStats(): { ipc_calls: number; ipc_max_ms: number; ipc_slowest: string } {
+  return {
+    ipc_calls: callCount,
+    ipc_max_ms: Math.round(maxMs),
+    ipc_slowest: slowestLabel,
+  }
+}
+
+/**
+ * 包裹一次绑定调用：归一化错误，并记录耗时（超阈值时告警）。
  *
  * 用法（下游范例）：
  *   try {
- *     const data = await invoke(() => ListAssets(req))
+ *     const data = await invoke(() => ListAssets(req), 'ListAssets')
  *   } catch (e) {
  *     const err = e as AppError
  *     if (err.code === ErrorCode.NotFound) { ... }  // 按 code 分流
  *   }
  *
- * 不强迫下游使用——直接 await 绑定方法也能跑，只是拿不到归一化形状。
+ * @param label 调用点标签，仅用于慢调用告警里定位。**不自动猜测**：本函数拿到的是
+ *   闭包（`() => ListAssets(req)`），从源码猜名字在 `usePagedList` 这类路径下会取到
+ *   `fetcher` 这种误导性结果——一个错的名字比没有名字更糟，故默认如实记为「未标注调用」。
+ *
+ * 不强迫下游使用——直接 await 绑定方法也能跑，只是拿不到归一化形状与耗时统计。
  */
-export async function invoke<T>(fn: () => Promise<T>): Promise<T> {
+export async function invoke<T>(fn: () => Promise<T>, label = '未标注调用'): Promise<T> {
+  const started = performance.now()
   try {
     return await fn()
   } catch (raw) {
     throw normalizeError(raw)
+  } finally {
+    // 放在 finally：失败的调用同样可能慢，而那正是最需要看到的一次
+    const ms = performance.now() - started
+    callCount++
+    if (ms > maxMs) {
+      maxMs = ms
+      slowestLabel = label
+    }
+    if (ms >= SLOW_CALL_MS) {
+      logWarn('绑定调用偏慢', { label, ms: Math.round(ms) })
+    }
   }
 }

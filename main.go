@@ -4,6 +4,7 @@ import (
 	"embed"
 	"log"
 	"log/slog"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -30,7 +31,40 @@ var trayIconBytes []byte
 // appName 应用标识，用于定位用户配置目录下的数据文件与日志。
 const appName = "__APP_NAME__"
 
+// bootTimer 记录组合根各阶段的耗时，输出启动时间线的 Go 侧半段。
+//
+// 为什么需要：此前启动只有「应用启动」与「前端已挂载」两点之差，实测 359–733ms
+// （同一天两次运行差 2×），中间是黑盒——不知道该优化 webview、前端产物还是组合根。
+// 前端那半段由 frontend/src/main.ts 记录，两半靠 app.log 的绝对时间戳拼起来
+// （见 openspec/changes/perf-instrumentation/design.md D1）。
+//
+// 该打点由 internal/guard/wiring_test.go 核对数量：删掉没有任何症状，
+// 只是启动优化重新变成盲调。
+type bootTimer struct {
+	start time.Time // 进程起点
+	last  time.Time // 上一阶段结束点
+}
+
+// newBootTimer 以调用时刻为进程起点。
+func newBootTimer() *bootTimer {
+	now := time.Now()
+	return &bootTimer{start: now, last: now}
+}
+
+// stage 记录一个阶段的耗时与该阶段结束时的累计耗时，并推进计时起点。
+func (b *bootTimer) stage(name string) {
+	now := time.Now()
+	slog.Info("启动阶段",
+		"stage", name,
+		"ms", now.Sub(b.last).Milliseconds(),
+		"total_ms", now.Sub(b.start).Milliseconds(),
+	)
+	b.last = now
+}
+
 func main() {
+	boot := newBootTimer()
+
 	// 日志：开发态 Debug，生产态 Info（构建模式判定见 buildmode_*.go）。
 	logLevel := slog.LevelDebug
 	if !debugBuild {
@@ -45,17 +79,21 @@ func main() {
 		log.Fatalf("日志初始化失败: %v", err)
 	}
 	defer closeLog()
+	boot.stage("日志初始化")
 
 	// 组合根：数据库 → 服务 → 配置 → App
 	db, err := database.Init(appName)
 	if err != nil {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
+	boot.stage("数据库初始化")
+
 	cfg, err := config.Load(appName)
 	if err != nil {
 		log.Fatalf("配置加载失败: %v", err)
 	}
 	app := NewApp(service.New(db), cfg)
+	boot.stage("配置加载与组装")
 
 	// 窗口几何：在【创建期】给定尺寸与最大化状态，首帧即正确。
 	// 不能在运行期设——OnStartup 在 goroutine 中执行，紧接着窗口就显示，二者存在竞态，

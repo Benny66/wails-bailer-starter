@@ -9,8 +9,9 @@ import { usePagedList } from '../../../src/composables/usePagedList'
 
 // 分页状态与加载收敛在 usePagedList 里：页大小上下界、错误归一化、
 // 「以 Go 回显的归一化值为准」等契约随之自动生效，无需逐页重写样板。
-const { list, total, page, pageSize, loading, error, load } = usePagedList((req) =>
-  ListExamples(req),
+const { list, total, page, pageSize, loading, error, load } = usePagedList(
+  (req) => ListExamples(req),
+  { label: 'ListExamples' }, // 慢调用告警里用它定位，见 lib/invoke.ts
 )
 
 onMounted(load)

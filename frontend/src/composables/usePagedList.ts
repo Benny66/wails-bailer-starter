@@ -8,6 +8,13 @@ export interface UsePagedListOptions {
   page?: number
   /** 初始页大小，默认 PageSize.Default。 */
   pageSize?: number
+  /**
+   * 绑定调用标签，用于慢调用告警里定位（如 'ListAssets'）。
+   *
+   * 由调用方提供而非本模块猜测：本模块内部是 `invoke(() => fetcher(req))`，
+   * 猜出来只会是 `fetcher` 这种误导性名字。
+   */
+  label?: string
 }
 
 /** usePagedList 的返回值。 */
@@ -35,6 +42,7 @@ export interface UsePagedListReturn<T> {
  * 用法：
  *   const { list, total, page, pageSize, loading, error, load } = usePagedList(
  *     (req) => ListExamples(req),
+ *     { label: 'ListExamples' },   // 可选：慢调用告警里用它定位
  *   )
  *   onMounted(load)
  *
@@ -63,7 +71,10 @@ export function usePagedList<T>(
     loading.value = true
     error.value = null
     try {
-      const res = await invoke(() => fetcher(newPageRequest(page.value, pageSize.value)))
+      const res = await invoke(
+        () => fetcher(newPageRequest(page.value, pageSize.value)),
+        options.label ?? '分页列表',
+      )
       list.value = res.list ?? []
       total.value = res.total
       // 以 Go 回显的归一化值为准（契约，见文件头）

@@ -3,9 +3,11 @@ package guard
 import (
 	"encoding/json"
 	"go/ast"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -212,6 +214,112 @@ func TestBundleIDIsProjectControlled(t *testing.T) {
 		t.Error("Info.plist 的 CFBundleIdentifier 未使用 {{safeBundleID .Name}} 派生应用名——" +
 			"多个产品会撞同一个 bundle id")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// 护栏 11：可观测性接线不得静默缺失
+//
+// 这类失效的共同点：删掉不会报错、不会崩溃，只是**失去可见性**——
+// 慢查询回到无人可见的 stdout、启动优化重新变成盲调。症状要等到真出问题时才显形，
+// 而那时正是最需要日志的时候。故只能靠检查兜住。
+// ---------------------------------------------------------------------------
+
+// TestGormLoggerIsWired 断言数据库连接配置了日志实现。
+func TestGormLoggerIsWired(t *testing.T) {
+	files, err := parseDir(filepath.Join(projectRoot(), "internal", "database"))
+	if err != nil {
+		t.Fatalf("解析 internal/database 失败: %v", err)
+	}
+	if len(files) == 0 {
+		t.Fatal("护栏在 internal/database 未解析到任何 .go 文件——写法可能已变更，请同步更新护栏解析规则")
+	}
+
+	lit := findCompositeLiteral(files, "gorm", "Config")
+	if lit == nil {
+		t.Fatal("护栏未找到 gorm.Config{...} 字面量——写法可能已变更，请同步更新护栏解析规则")
+	}
+
+	for _, elt := range lit.Elts {
+		if kv, ok := elt.(*ast.KeyValueExpr); ok {
+			if ident, ok := kv.Key.(*ast.Ident); ok && ident.Name == "Logger" {
+				return // 已接线
+			}
+		}
+	}
+	t.Error("gorm.Config 未设置 Logger：gorm 默认 logger 写 stdout，" +
+		"打包后的 GUI 应用无人可见，慢查询与 SQL 错误会静默消失")
+}
+
+// TestStartupTimelineStagesExist 断言组合根的启动阶段打点覆盖关键阶段。
+//
+// 删掉打点不会有任何症状，只是启动优化重新变成盲调（此前只有首尾两点，
+// 实测 359–733ms 的中间部分是黑盒）。
+func TestStartupTimelineStagesExist(t *testing.T) {
+	files, err := parseDir(projectRoot())
+	if err != nil {
+		t.Fatalf("解析项目根目录失败: %v", err)
+	}
+	f, ok := files["main.go"]
+	if !ok {
+		t.Fatal("护栏找不到 main.go——写法可能已变更，请同步更新护栏解析规则")
+	}
+
+	// 期望覆盖的阶段（改名即失败，提示同步护栏）
+	want := []string{"日志初始化", "数据库初始化", "配置加载与组装"}
+	found := map[string]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok || len(call.Args) != 1 {
+			return true
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != "stage" {
+			return true
+		}
+		if lit, ok := call.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			if name, uerr := strconv.Unquote(lit.Value); uerr == nil {
+				found[name] = true
+			}
+		}
+		return true
+	})
+
+	if len(found) == 0 {
+		t.Fatal("护栏在 main.go 未解析到任何启动阶段打点——写法可能已变更，请同步更新护栏解析规则")
+	}
+	for _, w := range want {
+		if !found[w] {
+			t.Errorf("启动时间线缺少阶段 %q：删掉打点不会有任何症状，"+
+				"只会让启动优化重新变成盲调（现有阶段: %v）", w, found)
+		}
+	}
+}
+
+// findCompositeLiteral 在给定文件集合中定位 `pkg.Type{...}` 形式的复合字面量。
+func findCompositeLiteral(files map[string]*ast.File, pkg, typeName string) *ast.CompositeLit {
+	var found *ast.CompositeLit
+	for _, f := range files {
+		ast.Inspect(f, func(n ast.Node) bool {
+			if found != nil {
+				return false
+			}
+			cl, ok := n.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			sel, ok := cl.Type.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			ident, ok := sel.X.(*ast.Ident)
+			if !ok || ident.Name != pkg || sel.Sel.Name != typeName {
+				return true
+			}
+			found = cl
+			return false
+		})
+	}
+	return found
 }
 
 // findWailsAppLiteral 在 main.go 中定位 `&options.App{...}`（wails.Run 的参数）。
