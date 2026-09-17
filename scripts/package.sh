@@ -200,7 +200,13 @@ APPLESCRIPT
     fi
     ;;
   linux)
-    bash scripts/build.sh -clean
+    # webkit 版本标签：wails 默认按 webkit2gtk-4.0 做 cgo 链接，而 Ubuntu 24.04+ /
+    # Debian 13+ 只提供 4.1，需 -tags webkit2_41 才切过去（否则报找不到 webkit2gtk-4.0）。
+    # Ubuntu 22.04+ 两者都有，故该标签对在支持期内的发行版都成立。
+    #
+    # Linux 不在 CI 的编译矩阵内（理由见 .github/workflows/build.yml），
+    # 此路径供本地打包使用，未经 CI 验证。
+    bash scripts/build.sh -clean -tags webkit2_41
     echo "✓ 已生成: build/bin/${APP_NAME}"
     ;;
   windows)

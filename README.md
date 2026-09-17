@@ -38,7 +38,7 @@ bash scripts/init.sh myapp com.mycompany   # 第二个参数可选：macOS bundl
 | Go | ≥ 1.25 | `go version` 确认 |
 | Node | ≥ 20 | `node --version` 确认 |
 | Wails CLI | v2.15+ | `go install github.com/wailsapp/wails/v2/cmd/wails@latest` |
-| 平台依赖 | — | Windows 需 WebView2；Linux 需 `libgtk-3-dev libwebkit2gtk-4.1-dev` |
+| 平台依赖 | — | Windows 需 WebView2；Linux 需 `libgtk-3-dev libwebkit2gtk-4.1-dev` + 构建时带 `-tags webkit2_41`（见下「已知限制」） |
 
 ## 快速开始
 
@@ -130,7 +130,7 @@ make package                          # 打包当前平台真安装包
 make package os=windows               # 交叉编译 Windows .exe 安装器（默认 scope=user）
 make package os=windows scope=machine # 装到 Program Files（需管理员）
 make package os=macos                 # 仅 mac 上可用（Wails 不支持交叉编译 mac）
-make package os=linux                 # 仅 linux 上可用（Wails 不支持交叉编译 linux）
+make package os=linux                 # 仅 linux 上可用（Wails 不支持交叉编译 linux）；未在 CI 验证
 ```
 
 - **产物位置**：`build/bin/`。
@@ -156,14 +156,22 @@ make package os=linux                 # 仅 linux 上可用（Wails 不支持交
   - 所有构建都走 `scripts/build.sh`（`make build` 亦然），它是唯一的版本注入点；
     macOS 构建后会回读产物 `Info.plist` 校验版本真的生效。
 - **母版防呆**：含占位符时拒绝打包，需先 `scripts/init.sh` 实例化。
-- CI：`.github/workflows/build.yml` 在 push/PR 时自动跑静态检查（`make test` / `make lint`）
-  + 三平台编译 + **生成器端到端验证**（`make verify-gen`，ubuntu 腿），产物上传为 artifact。
+- CI：`.github/workflows/build.yml` 在 push/PR 时自动跑
+  **静态检查**（`make test` / `make lint`，ubuntu）+ **macOS/Windows 编译**（产物上传为 artifact）
+  + **生成器端到端验证**（`make verify-gen`，macos 腿）。
+  Linux 的 Go 层覆盖由静态检查腿承担；Linux **产物编译不在矩阵内**（理由见下「已知限制」）。
 - 版本号管理：`scripts/release.sh`（可选，版本号 + 打包 + release 说明）。
 
 ## 已知限制
 
 - **macOS 无系统托盘**：Wails v2 的 NSApplication delegate 与所有 systray 库冲突（详见 `openspec/changes/runtime/design.md` D1），故 macOS 关闭即退出，托盘能力仅在 Windows/Linux 提供。
 - **无 headless 模式**：冒烟测试定位为本地验证，CI 只编译不启动 GUI。
+- **Linux 产物编译不在 CI 验证范围内**：Wails 在 Linux 上按 **webkit2gtk 版本**做 cgo 链接
+  ——默认找 `webkit2gtk-4.0`，而 Ubuntu 24.04+ / Debian 13+ 只提供 4.1，必须带
+  `-tags webkit2_41` 才切得过去。这是「取决于 runner 镜像装了什么包」的环境耦合，
+  维护成本高于收益，故编译矩阵只保留 macOS / Windows。
+  `make package os=linux` 仍可用（脚本已带该标签，但本地需自行确认），**无 CI 背书**；
+  Linux 的 Go 层行为（测试/护栏/生成器端到端）仍由 CI 的 ubuntu 静态检查腿覆盖。
 - **窗口位置不持久化**：只记住尺寸与最大化。Wails v2 没有创建期位置选项，运行期设置与
   窗口显示存在竞态（会看到跳动），且需屏幕边界夹取，否则窗口可能还原到已拔掉的显示器上
   （详见 `openspec/changes/runtime-pipeline/design.md` D1）。

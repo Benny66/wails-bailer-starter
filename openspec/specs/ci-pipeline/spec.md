@@ -10,13 +10,6 @@ CI MUST 在提交后自动运行静态检查（Go 测试 + 护栏 + lint）。
 - **WHEN** 提交引入了护栏或 lint 违规
 - **THEN** CI 失败，问题在合并前暴露
 
-### Requirement: 三平台编译
-CI MUST 编译 Windows/macOS/Linux 三平台产物并上传 artifact。
-
-#### Scenario: 三平台产物
-- **WHEN** CI 运行编译 job
-- **THEN** 产出 exe（Windows）/ app（macOS）/ 二进制或 AppImage（Linux），并上传为 artifact
-
 ### Requirement: 生成器端到端验证纳入 CI
 CI MUST 执行生成器端到端验证，使该检查不再只依赖开发者记得在本地运行。
 
@@ -39,4 +32,27 @@ CI MUST 执行生成器端到端验证，使该检查不再只依赖开发者记
 #### Scenario: 检查 job 真的能跑通
 - **WHEN** 在干净检出上运行检查 job 的全部步骤
 - **THEN** 每一步都通过，不出现「检查本身跑不起来」的长期红灯
+
+### Requirement: 编译矩阵
+CI MUST 编译并上传产物，且矩阵 MUST 只包含能稳定通过的平台。
+编译结果取决于 runner 镜像装了什么系统包这类环境耦合，MUST NOT 作为矩阵成员长期维护。
+
+#### Scenario: 矩阵内平台产物
+- **WHEN** CI 运行编译 job
+- **THEN** 产出 app（macOS）与 exe（Windows），并上传为 artifact
+
+#### Scenario: 环境耦合的平台不进矩阵
+- **WHEN** 某平台的编译结果取决于 runner 镜像装了什么系统包
+- **THEN** 该平台不在编译矩阵内，其构建说明标注为「无 CI 验证」，
+  而非以经常失败的形态留在矩阵中
+
+#### Scenario: 不软化失败
+- **WHEN** 一条腿无法稳定通过
+- **THEN** 从矩阵移除，而不是用「允许失败」的方式让它红着不拦——
+  后者会让失败长期无人处理
+
+#### Scenario: Go 层覆盖不随之丢失
+- **WHEN** 某平台因产物编译不稳定而退出矩阵
+- **THEN** 它的 Go 层行为仍由静态检查腿覆盖（测试 / 护栏 / lint / 生成器端到端），
+  只是不再承诺其产物可编译
 

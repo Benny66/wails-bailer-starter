@@ -49,9 +49,11 @@ echo "==> 打包版本 $VERSION ..."
 mkdir -p dist
 
 # 三平台打包（各平台需对应工具链）。构建统一走 build.sh，由它注入版本与提交号。
+# Linux 行额外带 webkit2_41：wails 默认按 webkit2gtk-4.0 链接，Ubuntu 24.04+/Debian 13+
+# 只有 4.1（详见 scripts/package.sh 的同名说明）。Linux 不在 CI 编译矩阵内。
 bash scripts/build.sh -platform windows/amd64 -o "dist/${APP_NAME}-${VERSION}-windows-amd64.exe" 2>&1 | tail -2 || echo "Windows 打包跳过（需在支持的环境）"
 bash scripts/build.sh -platform darwin/universal -o "dist/${APP_NAME}-${VERSION}-macos-universal" 2>&1 | tail -2 || echo "macOS 打包跳过（需在支持的环境）"
-bash scripts/build.sh -platform linux/amd64 -o "dist/${APP_NAME}-${VERSION}-linux-amd64" 2>&1 | tail -2 || echo "Linux 打包跳过（需在支持的环境）"
+bash scripts/build.sh -platform linux/amd64 -tags webkit2_41 -o "dist/${APP_NAME}-${VERSION}-linux-amd64" 2>&1 | tail -2 || echo "Linux 打包跳过（需在支持的环境）"
 
 # 生成 release 说明
 cat > "RELEASE_NOTES.md" <<EOF
